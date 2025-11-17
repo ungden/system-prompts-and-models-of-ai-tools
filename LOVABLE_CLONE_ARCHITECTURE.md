@@ -1,1411 +1,967 @@
-# Lovable Clone - Kiến trúc Toàn diện
+# Lovable Clone - Architecture (React + Vite + Supabase)
 
-> **Mục tiêu**: Xây dựng AI-powered code generation platform tương tự Lovable với chat interface, live preview, và agent system
+> **Tech Stack:** Đúng 100% như Lovable thật - React, Vite, Tailwind, Supabase
 
 ---
 
-## 📋 Tổng quan Hệ thống
+## 📋 Overview
 
-### Tech Stack Core
+### **Lovable's ACTUAL Tech Stack**
+
 ```
-Frontend:         React 18 + TypeScript + Vite
+Frontend:         React 18 + Vite + TypeScript
 Styling:          Tailwind CSS + shadcn/ui
-State Management: Zustand / Jotai
-Backend:          Node.js + Express / Fastify
-Database:         PostgreSQL + Prisma / Supabase
-AI/LLM:           OpenAI GPT-4 / Anthropic Claude / Custom Model
-Real-time:        WebSocket (Socket.io)
-Container:        WebContainer (StackBlitz) hoặc Docker
+State:            Zustand / Jotai
+Backend:          Supabase (Database, Auth, Storage, Realtime, Edge Functions)
+AI/LLM:           OpenAI GPT-4 / Anthropic Claude
+Real-time:        Supabase Realtime subscriptions
+Preview:          WebContainer (StackBlitz) - Live iframe preview
+```
+
+### **⚠️ KHÔNG HỖ TRỢ:**
+- ❌ Next.js, Angular, Vue, Svelte
+- ❌ Backend runtime (Python, Node.js server)
+- ❌ Custom API routes
+
+### **✅ HỖ TRỢ:**
+- ✅ React + Vite ONLY
+- ✅ Supabase Edge Functions (thay API routes)
+- ✅ Supabase native integration
+
+---
+
+## 🏗️ System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    LOVABLE CLONE                            │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌──────────┐  ┌──────────────┐  ┌───────────────────┐   │
+│  │ Sidebar  │  │  Chat Panel  │  │  Live Preview     │   │
+│  │          │  │              │  │                   │   │
+│  │ Sections │  │  Messages    │  │  ┌─────────────┐ │   │
+│  │ Theme    │  │  Input       │  │  │  iframe     │ │   │
+│  │ Files    │  │  Streaming   │  │  │  (Vite dev) │ │   │
+│  └──────────┘  └──────────────┘  │  └─────────────┘ │   │
+│                                   └───────────────────┘   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+                          ▼
+        ┌─────────────────────────────────────┐
+        │      Supabase Edge Functions        │
+        │  ┌───────────────────────────────┐  │
+        │  │ /chat      - AI responses     │  │
+        │  │ /codegen   - Generate code    │  │
+        │  │ /project   - Project mgmt     │  │
+        │  │ /deploy    - Deploy logic     │  │
+        │  └───────────────────────────────┘  │
+        └─────────────────────────────────────┘
+                          ▼
+        ┌─────────────────────────────────────┐
+        │         Supabase Services           │
+        │  • PostgreSQL Database              │
+        │  • Auth (email, OAuth)              │
+        │  • Storage (file uploads)           │
+        │  • Realtime (live updates)          │
+        └─────────────────────────────────────┘
 ```
 
 ---
 
-## 🏗️ I. AI LAYER (Lớp Trí tuệ Nhân tạo)
+## 🎯 I. FRONTEND LAYER (React + Vite)
 
-### 1. **Requirement Parser** (Phân tích Yêu cầu)
+### 1. **Project Structure**
 
-**Chức năng:**
-- Parse user messages thành structured requirements
-- Phân loại intent: code generation, debugging, refactoring, explanation
-- Extract entities: components, features, technologies, design preferences
-
-**Tech Stack:**
-```typescript
-// libraries
-- langchain / llamaindex: Orchestration
-- zod: Schema validation
-- natural: NLP utilities (optional)
-
-// AI Models
-- GPT-4-turbo / Claude 3.5 Sonnet (main)
-- GPT-3.5-turbo (classification)
 ```
-
-**Implementation:**
-```typescript
-interface ParsedRequirement {
-  intent: 'generate' | 'modify' | 'debug' | 'explain';
-  entities: {
-    components: string[];
-    features: string[];
-    techStack: string[];
-    designPreferences?: DesignTokens;
-  };
-  complexity: 'simple' | 'medium' | 'complex';
-  dependencies: string[];
-}
-
-class RequirementParser {
-  async parse(userMessage: string, context: ConversationContext): Promise<ParsedRequirement> {
-    // 1. Use LLM with structured output
-    // 2. Extract entities
-    // 3. Determine intent and complexity
-    // 4. Return parsed structure
-  }
-}
-```
-
----
-
-### 2. **UI Section Generator** (Tạo UI Sections)
-
-**Chức năng:**
-- Generate semantic HTML structure
-- Create component hierarchy
-- Apply design system tokens
-- Ensure responsive layout
-
-**Tech Stack:**
-```typescript
-// Core
-- AI Model với prompt engineering đặc biệt
-- Template system (handlebars/nunjucks)
-- AST parser (babel/typescript)
-```
-
-**Implementation:**
-```typescript
-interface UISection {
-  type: 'hero' | 'feature' | 'testimonial' | 'cta' | 'form' | 'gallery' | 'custom';
-  layout: 'grid' | 'flex' | 'stack';
-  components: ComponentSpec[];
-  designTokens: DesignTokens;
-  responsive: ResponsiveConfig;
-}
-
-class UISectionGenerator {
-  async generate(requirement: ParsedRequirement): Promise<UISection[]> {
-    // Use AI với specialized prompt
-    const prompt = this.buildSectionPrompt(requirement);
-    const sections = await this.llm.generate(prompt);
-    return this.validateAndOptimize(sections);
-  }
-
-  private buildSectionPrompt(req: ParsedRequirement): string {
-    // Reference: Lovable/Agent Prompt.txt lines 219-305
-    // Implement design system first approach
-  }
-}
-```
-
----
-
-### 3. **React Code Generator** (Tạo React Code)
-
-**Chức năng:**
-- Generate production-ready React components
-- Apply best practices (hooks, typescript, accessibility)
-- Implement design system
-- Generate tests (optional)
-
-**Tech Stack:**
-```typescript
-// Code generation
-- AI Model (GPT-4 / Claude Sonnet)
-- AST manipulation (babel, recast)
-- Prettier (formatting)
-- ESLint (validation)
-
-// Template
-- React 18 + TypeScript
-- Vite hoặc Next.js
-- TailwindCSS + shadcn/ui
-```
-
-**Implementation:**
-```typescript
-interface ComponentSpec {
-  name: string;
-  type: 'page' | 'component' | 'layout' | 'hook' | 'util';
-  props: PropDefinition[];
-  state: StateDefinition[];
-  imports: string[];
-  dependencies: string[];
-}
-
-class ReactCodeGenerator {
-  async generateComponent(spec: ComponentSpec, designSystem: DesignSystem): Promise<GeneratedCode> {
-    // 1. Generate component structure
-    const template = this.selectTemplate(spec.type);
-
-    // 2. Use AI to generate code
-    const prompt = this.buildCodePrompt(spec, designSystem);
-    const code = await this.llm.generate(prompt, {
-      temperature: 0.2, // Lower for more consistent code
-      max_tokens: 4000
-    });
-
-    // 3. Validate and format
-    const formatted = await this.formatCode(code);
-    const validated = await this.validateCode(formatted);
-
-    return {
-      code: validated,
-      filePath: this.getFilePath(spec),
-      imports: this.extractImports(validated)
-    };
-  }
-
-  private buildCodePrompt(spec: ComponentSpec, designSystem: DesignSystem): string {
-    return `
-Generate a React TypeScript component with:
-- Name: ${spec.name}
-- Type: ${spec.type}
-- Props: ${JSON.stringify(spec.props)}
-- Design System: ${JSON.stringify(designSystem)}
-
-Requirements:
-1. Use semantic HTML and ARIA attributes
-2. Follow design system tokens (no hardcoded colors)
-3. Implement responsive design
-4. Use React hooks best practices
-5. Add TypeScript types for all props
-6. NO emojis in code comments
-
-Design System:
-${this.formatDesignSystem(designSystem)}
-`;
-  }
-}
-```
-
----
-
-### 4. **Code Fixer** (Sửa lỗi Code)
-
-**Chức năng:**
-- Detect and fix TypeScript errors
-- Fix build errors
-- Fix ESLint warnings
-- Optimize performance issues
-
-**Tech Stack:**
-```typescript
-// Error detection
-- TypeScript Compiler API
-- ESLint programmatic API
-- Custom error parsers
-
-// Fixing
-- AI Model với error context
-- AST transformations
-```
-
-**Implementation:**
-```typescript
-interface CodeError {
-  type: 'typescript' | 'eslint' | 'build' | 'runtime';
-  file: string;
-  line: number;
-  message: string;
-  code?: string;
-  severity: 'error' | 'warning';
-}
-
-class CodeFixer {
-  async fixErrors(errors: CodeError[], fileTree: FileTree): Promise<FixResult[]> {
-    const fixes: FixResult[] = [];
-
-    for (const error of errors) {
-      // 1. Read file context
-      const fileContent = await this.readFile(error.file);
-
-      // 2. Build fix prompt with error context
-      const prompt = this.buildFixPrompt(error, fileContent);
-
-      // 3. Generate fix
-      const fix = await this.llm.generate(prompt);
-
-      // 4. Apply and validate
-      const applied = await this.applyFix(error.file, fix);
-      fixes.push(applied);
-    }
-
-    return fixes;
-  }
-
-  async detectErrors(fileTree: FileTree): Promise<CodeError[]> {
-    // Use TypeScript compiler API
-    const tsErrors = await this.detectTypeScriptErrors(fileTree);
-    const eslintErrors = await this.detectESLintErrors(fileTree);
-
-    return [...tsErrors, ...eslintErrors];
-  }
-}
-```
-
----
-
-### 5. **Project Memory Logic** (Bộ nhớ Dự án)
-
-**Chức năng:**
-- Store conversation context
-- Track file changes history
-- Remember user preferences
-- Maintain design system state
-- Cache common patterns
-
-**Tech Stack:**
-```typescript
-// Storage
-- Redis (session cache)
-- PostgreSQL (persistent storage)
-- Vector DB (Pinecone/Weaviate) for semantic search
-
-// Context management
-- LangChain Memory modules
-- Custom context window management
-```
-
-**Implementation:**
-```typescript
-interface ProjectMemory {
-  projectId: string;
-  conversationHistory: Message[];
-  fileChanges: FileChange[];
-  designSystem: DesignSystem;
-  dependencies: string[];
-  userPreferences: UserPreferences;
-  codePatterns: CodePattern[];
-}
-
-class ProjectMemoryManager {
-  private vectorStore: VectorStore;
-  private cache: RedisClient;
-  private db: PrismaClient;
-
-  async remember(projectId: string, data: Partial<ProjectMemory>): Promise<void> {
-    // 1. Store in cache for quick access
-    await this.cache.set(`project:${projectId}`, data, 'EX', 3600);
-
-    // 2. Store in database for persistence
-    await this.db.projectMemory.upsert({
-      where: { projectId },
-      update: data,
-      create: { projectId, ...data }
-    });
-
-    // 3. Update vector store for semantic search
-    if (data.conversationHistory) {
-      await this.indexConversations(projectId, data.conversationHistory);
-    }
-  }
-
-  async recall(projectId: string, query?: string): Promise<ProjectMemory> {
-    // Try cache first
-    const cached = await this.cache.get(`project:${projectId}`);
-    if (cached) return JSON.parse(cached);
-
-    // Fall back to database
-    const stored = await this.db.projectMemory.findUnique({
-      where: { projectId }
-    });
-
-    return stored;
-  }
-
-  async searchSimilarCode(query: string, projectId: string): Promise<CodePattern[]> {
-    // Semantic search in vector store
-    return await this.vectorStore.search(query, {
-      filter: { projectId },
-      limit: 5
-    });
-  }
-}
-```
-
----
-
-## 🔧 II. DEV LAYER (Lớp Phát triển)
-
-### 1. **Next.js Project Template**
-
-**Structure:**
-```
-project-template/
+lovable-clone/
 ├── src/
-│   ├── app/                 # Next.js 14 App Router
-│   │   ├── layout.tsx
-│   │   ├── page.tsx
-│   │   └── globals.css
 │   ├── components/
-│   │   ├── ui/             # shadcn/ui components
-│   │   └── custom/         # User components
+│   │   ├── chat/
+│   │   │   ├── ChatPanel.tsx
+│   │   │   ├── ChatMessage.tsx
+│   │   │   └── ChatInput.tsx
+│   │   ├── preview/
+│   │   │   ├── LivePreview.tsx
+│   │   │   ├── ConsolePanel.tsx
+│   │   │   └── NetworkPanel.tsx
+│   │   ├── sidebar/
+│   │   │   ├── Sidebar.tsx
+│   │   │   ├── SectionsPanel.tsx
+│   │   │   ├── ThemePanel.tsx
+│   │   │   └── FilesPanel.tsx
+│   │   └── ui/              # shadcn/ui components
 │   ├── lib/
-│   │   ├── utils.ts
-│   │   └── hooks/
-│   ├── styles/
-│   │   └── tokens.ts       # Design system tokens
-│   └── types/
+│   │   ├── supabase.ts       # Supabase client
+│   │   ├── ai-agent.ts       # AI agent logic
+│   │   └── webcontainer.ts   # WebContainer API
+│   ├── stores/
+│   │   ├── chat-store.ts     # Zustand store
+│   │   ├── preview-store.ts
+│   │   └── project-store.ts
+│   ├── types/
+│   │   └── index.ts
+│   ├── App.tsx
+│   ├── main.tsx
+│   └── index.css
+├── supabase/
+│   ├── functions/            # Edge Functions
+│   │   ├── chat/
+│   │   ├── codegen/
+│   │   ├── project/
+│   │   └── deploy/
+│   └── migrations/           # Database schemas
 ├── public/
+├── index.html
+├── vite.config.ts
 ├── tailwind.config.ts
 ├── tsconfig.json
-├── package.json
-└── vite.config.ts / next.config.js
+└── package.json
 ```
 
-**package.json template:**
-```json
-{
-  "name": "lovable-generated-app",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "type-check": "tsc --noEmit"
-  },
-  "dependencies": {
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0",
-    "next": "^14.2.0",
-    "@radix-ui/react-*": "latest",
-    "class-variance-authority": "^0.7.0",
-    "clsx": "^2.1.0",
-    "tailwind-merge": "^2.2.0",
-    "lucide-react": "^0.378.0",
-    "zod": "^3.23.0",
-    "zustand": "^4.5.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "typescript": "^5",
-    "tailwindcss": "^3.4.0",
-    "postcss": "^8",
-    "autoprefixer": "^10.0.1",
-    "eslint": "^8",
-    "eslint-config-next": "14.2.0"
-  }
-}
-```
+### 2. **Main App Entry**
 
----
-
-### 2. **Code Writer Engine**
-
-**Chức năng:**
-- Write/update files in file system
-- Handle file conflicts
-- Batch operations
-- Rollback support
-
-**Implementation:**
+**File: `src/main.tsx`**
 ```typescript
-interface WriteOperation {
-  type: 'create' | 'update' | 'delete' | 'rename';
-  filePath: string;
-  content?: string;
-  newPath?: string;
-}
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './index.css';
 
-class CodeWriterEngine {
-  private fs: FileSystemAdapter;
-  private history: OperationHistory;
-
-  async executeOperations(operations: WriteOperation[]): Promise<WriteResult> {
-    const transaction = this.history.beginTransaction();
-
-    try {
-      for (const op of operations) {
-        switch (op.type) {
-          case 'create':
-            await this.createFile(op.filePath, op.content!);
-            break;
-          case 'update':
-            await this.updateFile(op.filePath, op.content!);
-            break;
-          case 'delete':
-            await this.deleteFile(op.filePath);
-            break;
-          case 'rename':
-            await this.renameFile(op.filePath, op.newPath!);
-            break;
-        }
-
-        transaction.record(op);
-      }
-
-      await transaction.commit();
-      return { success: true, operations };
-    } catch (error) {
-      await transaction.rollback();
-      return { success: false, error };
-    }
-  }
-
-  async applyLineReplace(
-    filePath: string,
-    search: string,
-    replace: string,
-    startLine: number,
-    endLine: number
-  ): Promise<void> {
-    // Similar to Lovable's lov-line-replace tool
-    const content = await this.fs.readFile(filePath);
-    const lines = content.split('\n');
-
-    // Validate line range
-    const searchContent = lines.slice(startLine - 1, endLine).join('\n');
-    if (!searchContent.includes(search)) {
-      throw new Error('Search content not found at specified line range');
-    }
-
-    // Replace
-    const newContent = searchContent.replace(search, replace);
-    lines.splice(startLine - 1, endLine - startLine + 1, ...newContent.split('\n'));
-
-    await this.fs.writeFile(filePath, lines.join('\n'));
-  }
-}
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
 ```
 
----
-
-### 3. **File Tree API**
-
-**Chức năng:**
-- Get project structure
-- Search files
-- Watch file changes
-- Manage dependencies
-
-**Implementation:**
+**File: `src/App.tsx`**
 ```typescript
-interface FileNode {
-  name: string;
-  path: string;
-  type: 'file' | 'directory';
-  children?: FileNode[];
-  size?: number;
-  modified?: Date;
-}
+import { ChatPanel } from './components/chat/ChatPanel';
+import { LivePreview } from './components/preview/LivePreview';
+import { Sidebar } from './components/sidebar/Sidebar';
 
-class FileTreeAPI {
-  async getTree(rootPath: string, options?: TreeOptions): Promise<FileNode> {
-    return await this.buildTree(rootPath, options);
-  }
-
-  async searchFiles(pattern: string, options?: SearchOptions): Promise<FileNode[]> {
-    // Implement glob pattern matching
-    return await this.glob(pattern, options);
-  }
-
-  async watchChanges(callback: (event: FileChangeEvent) => void): Promise<Watcher> {
-    // Use chokidar or similar
-    return this.watcher.watch('**/*', {
-      ignored: ['node_modules/**', '.git/**'],
-      persistent: true
-    }).on('all', (event, path) => {
-      callback({ event, path, timestamp: new Date() });
-    });
-  }
-
-  async getDependencies(filePath: string): Promise<string[]> {
-    // Parse imports/requires
-    const content = await this.fs.readFile(filePath);
-    return this.parseImports(content);
-  }
-}
-```
-
----
-
-### 4. **Build & Preview Pipeline**
-
-**Chức năng:**
-- Hot Module Replacement (HMR)
-- Real-time compilation
-- Error reporting
-- Performance monitoring
-
-**Architecture:**
-```
-┌─────────────┐
-│   Editor    │
-│   Changes   │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────────┐
-│  Code Writer    │
-│     Engine      │
-└────────┬────────┘
-         │
-         ▼
-┌──────────────────┐      ┌────────────────┐
-│  WebContainer /  │──────▶│  Build Process │
-│  Docker Runtime  │      │  (Vite/Next)   │
-└────────┬─────────┘      └────────┬───────┘
-         │                         │
-         │                         ▼
-         │                  ┌──────────────┐
-         │                  │ Error Parser │
-         │                  └──────┬───────┘
-         │                         │
-         ▼                         ▼
-┌──────────────────────────────────────┐
-│         Live Preview (iframe)         │
-└──────────────────────────────────────┘
-```
-
-**Implementation:**
-```typescript
-class BuildPreviewPipeline {
-  private container: WebContainerInstance;
-  private buildProcess: ChildProcess;
-
-  async initialize(projectPath: string): Promise<void> {
-    // Initialize WebContainer
-    this.container = await WebContainer.boot();
-
-    // Mount file system
-    await this.container.mount(projectPath);
-
-    // Install dependencies
-    const installProcess = await this.container.spawn('npm', ['install']);
-    await installProcess.exit;
-
-    // Start dev server
-    this.buildProcess = await this.container.spawn('npm', ['run', 'dev']);
-
-    // Listen for errors
-    this.buildProcess.output.pipeTo(new WritableStream({
-      write: (data) => {
-        this.parseOutput(data);
-      }
-    }));
-  }
-
-  async rebuild(): Promise<BuildResult> {
-    // Trigger rebuild (HMR will handle if available)
-    const result = await this.waitForBuild();
-    return result;
-  }
-
-  private parseOutput(output: string): void {
-    // Parse build errors/warnings
-    const errors = this.extractErrors(output);
-    if (errors.length > 0) {
-      this.emit('build-error', errors);
-    }
-  }
-
-  getPreviewUrl(): string {
-    return this.container.url;
-  }
-}
-```
-
----
-
-## 🎨 III. UI TOOL LAYER (Lớp Giao diện)
-
-### 1. **Chat Panel**
-
-**Features:**
-- Real-time messaging
-- Code syntax highlighting
-- Markdown support
-- File attachments
-- Image previews
-- Loading states
-
-**Tech Stack:**
-```typescript
-// UI Components
-- React + TypeScript
-- TailwindCSS
-- shadcn/ui (Dialog, ScrollArea, Avatar)
-- react-markdown
-- prismjs / shiki (syntax highlighting)
-
-// Real-time
-- WebSocket / Server-Sent Events
-```
-
-**Component Structure:**
-```typescript
-interface Message {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: Date;
-  attachments?: Attachment[];
-  toolCalls?: ToolCall[];
-}
-
-const ChatPanel: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isStreaming, setIsStreaming] = useState(false);
-
-  const sendMessage = async (content: string) => {
-    const userMessage: Message = {
-      id: nanoid(),
-      role: 'user',
-      content,
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-
-    // Stream response
-    setIsStreaming(true);
-    const stream = await api.chat.stream(content);
-
-    let assistantMessage = '';
-    for await (const chunk of stream) {
-      assistantMessage += chunk;
-      setMessages(prev => [
-        ...prev.slice(0, -1),
-        {
-          id: nanoid(),
-          role: 'assistant',
-          content: assistantMessage,
-          timestamp: new Date()
-        }
-      ]);
-    }
-    setIsStreaming(false);
-  };
-
+export default function App() {
   return (
-    <div className="flex flex-col h-full">
-      <MessageList messages={messages} />
-      <ChatInput onSend={sendMessage} disabled={isStreaming} />
-    </div>
-  );
-};
-```
+    <div className="flex h-screen bg-background">
+      <Sidebar />
 
----
+      <div className="flex-1 flex">
+        <div className="w-1/2 border-r">
+          <ChatPanel />
+        </div>
 
-### 2. **Sidebar Controls**
-
-**Features:**
-- Add Section (hero, features, etc.)
-- Layout selector
-- Theme customization
-- Component library
-- File explorer
-
-**Implementation:**
-```typescript
-interface SidebarTab {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  panel: React.ComponentType;
-}
-
-const Sidebar: React.FC = () => {
-  const tabs: SidebarTab[] = [
-    {
-      id: 'sections',
-      label: 'Sections',
-      icon: <LayoutGrid />,
-      panel: SectionPanel
-    },
-    {
-      id: 'components',
-      label: 'Components',
-      icon: <Package />,
-      panel: ComponentLibrary
-    },
-    {
-      id: 'theme',
-      label: 'Theme',
-      icon: <Palette />,
-      panel: ThemeCustomizer
-    },
-    {
-      id: 'files',
-      label: 'Files',
-      icon: <Folder />,
-      panel: FileExplorer
-    }
-  ];
-
-  return (
-    <aside className="w-80 border-r">
-      <Tabs tabs={tabs} />
-    </aside>
-  );
-};
-
-// Section Panel
-const SectionPanel: React.FC = () => {
-  const sections = [
-    { id: 'hero', name: 'Hero Section', preview: HeroPreview },
-    { id: 'features', name: 'Features Grid', preview: FeaturesPreview },
-    { id: 'testimonials', name: 'Testimonials', preview: TestimonialsPreview },
-    { id: 'cta', name: 'Call to Action', preview: CTAPreview },
-    { id: 'pricing', name: 'Pricing Table', preview: PricingPreview }
-  ];
-
-  const addSection = async (sectionId: string) => {
-    await api.sections.add({
-      type: sectionId,
-      position: 'end'
-    });
-  };
-
-  return (
-    <div className="p-4 space-y-4">
-      {sections.map(section => (
-        <SectionCard
-          key={section.id}
-          name={section.name}
-          preview={section.preview}
-          onAdd={() => addSection(section.id)}
-        />
-      ))}
-    </div>
-  );
-};
-```
-
----
-
-### 3. **Live Preview**
-
-**Features:**
-- iframe isolation
-- Responsive viewport controls
-- Device presets (mobile, tablet, desktop)
-- Interaction recording
-- Console log capture
-- Network request monitoring
-
-**Implementation:**
-```typescript
-const LivePreview: React.FC = () => {
-  const [viewport, setViewport] = useState<Viewport>('desktop');
-  const [url, setUrl] = useState<string>('');
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  const viewportSizes = {
-    mobile: { width: 375, height: 667 },
-    tablet: { width: 768, height: 1024 },
-    desktop: { width: 1440, height: 900 }
-  };
-
-  useEffect(() => {
-    // Listen for build completion
-    const unsubscribe = buildPipeline.on('build-complete', (newUrl) => {
-      setUrl(newUrl);
-    });
-
-    return unsubscribe;
-  }, []);
-
-  useEffect(() => {
-    // Capture console logs from iframe
-    if (iframeRef.current?.contentWindow) {
-      const originalConsole = iframeRef.current.contentWindow.console;
-
-      ['log', 'warn', 'error'].forEach(method => {
-        iframeRef.current!.contentWindow!.console[method] = (...args) => {
-          // Send to parent
-          window.postMessage({
-            type: 'console',
-            method,
-            args
-          }, '*');
-
-          // Call original
-          originalConsole[method](...args);
-        };
-      });
-    }
-  }, [url]);
-
-  return (
-    <div className="flex flex-col h-full">
-      <PreviewToolbar
-        viewport={viewport}
-        onViewportChange={setViewport}
-      />
-
-      <div
-        className="flex-1 flex items-center justify-center bg-gray-100"
-        style={{
-          width: viewportSizes[viewport].width,
-          height: viewportSizes[viewport].height
-        }}
-      >
-        <iframe
-          ref={iframeRef}
-          src={url}
-          className="w-full h-full bg-white"
-          sandbox="allow-scripts allow-same-origin"
-        />
+        <div className="w-1/2">
+          <LivePreview />
+        </div>
       </div>
     </div>
   );
-};
-```
-
----
-
-### 4. **Project Settings**
-
-**Features:**
-- Project metadata
-- Environment variables
-- Build configuration
-- Deployment settings
-- Team collaboration
-
-**Implementation:**
-```typescript
-interface ProjectSettings {
-  name: string;
-  description: string;
-  framework: 'next' | 'vite' | 'remix';
-  envVars: Record<string, string>;
-  buildConfig: BuildConfig;
-  deployment: DeploymentConfig;
 }
-
-const ProjectSettingsPanel: React.FC = () => {
-  const [settings, setSettings] = useState<ProjectSettings>();
-
-  return (
-    <Dialog>
-      <DialogContent className="max-w-2xl">
-        <Tabs defaultValue="general">
-          <TabsList>
-            <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="env">Environment</TabsTrigger>
-            <TabsTrigger value="build">Build</TabsTrigger>
-            <TabsTrigger value="deploy">Deployment</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="general">
-            <GeneralSettings settings={settings} onChange={setSettings} />
-          </TabsContent>
-
-          <TabsContent value="env">
-            <EnvironmentVariables envVars={settings?.envVars} />
-          </TabsContent>
-
-          {/* Other tabs */}
-        </Tabs>
-      </DialogContent>
-    </Dialog>
-  );
-};
 ```
 
----
+### 3. **Vite Configuration**
 
-## 📦 IV. OUTPUT & DEPLOYMENT LAYER
-
-### 1. **Export ZIP**
-
+**File: `vite.config.ts`**
 ```typescript
-class ZipExporter {
-  async exportProject(projectId: string): Promise<Blob> {
-    const zip = new JSZip();
-    const fileTree = await fileTreeAPI.getTree(projectId);
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
 
-    // Add all files
-    await this.addFilesToZip(zip, fileTree);
-
-    // Add README
-    zip.file('README.md', this.generateReadme(projectId));
-
-    // Generate zip
-    const blob = await zip.generateAsync({
-      type: 'blob',
-      compression: 'DEFLATE',
-      compressionOptions: { level: 9 }
-    });
-
-    return blob;
-  }
-
-  private async addFilesToZip(zip: JSZip, node: FileNode, basePath = ''): Promise<void> {
-    if (node.type === 'file') {
-      const content = await fs.readFile(node.path);
-      zip.file(path.join(basePath, node.name), content);
-    } else {
-      const folder = zip.folder(path.join(basePath, node.name));
-      for (const child of node.children || []) {
-        await this.addFilesToZip(zip, child, path.join(basePath, node.name));
-      }
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src')
+    }
+  },
+  server: {
+    port: 3000,
+    headers: {
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Opener-Policy': 'same-origin'
     }
   }
+});
+```
+
+---
+
+## 🔧 II. SUPABASE BACKEND LAYER
+
+### 1. **Database Schema**
+
+**File: `supabase/migrations/20240101_initial.sql`**
+```sql
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Users (handled by Supabase Auth)
+
+-- Projects table
+CREATE TABLE public.projects (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  name text not null,
+  description text,
+  file_tree jsonb default '{}'::jsonb,
+  design_system jsonb default '{}'::jsonb,
+  dependencies jsonb default '[]'::jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Messages table (conversation history)
+CREATE TABLE public.messages (
+  id uuid default uuid_generate_v4() primary key,
+  project_id uuid references public.projects(id) on delete cascade not null,
+  role text not null check (role in ('user', 'assistant', 'system')),
+  content text not null,
+  tool_calls jsonb,
+  created_at timestamptz default now()
+);
+
+-- Files table (generated code)
+CREATE TABLE public.project_files (
+  id uuid default uuid_generate_v4() primary key,
+  project_id uuid references public.projects(id) on delete cascade not null,
+  path text not null,
+  content text not null,
+  language text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique(project_id, path)
+);
+
+-- Usage tracking
+CREATE TABLE public.usage (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  tokens integer not null,
+  type text not null check (type in ('chat', 'generation')),
+  timestamp timestamptz default now()
+);
+
+-- Row Level Security
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.project_files ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.usage ENABLE ROW LEVEL SECURITY;
+
+-- Policies
+CREATE POLICY "Users can view own projects"
+  ON public.projects FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own projects"
+  ON public.projects FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own projects"
+  ON public.projects FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own projects"
+  ON public.projects FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- Similar policies for other tables...
+```
+
+### 2. **Supabase Client Setup**
+
+**File: `src/lib/supabase.ts`**
+```typescript
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Type definitions
+export interface Project {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  file_tree: Record<string, any>;
+  design_system: Record<string, any>;
+  dependencies: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Message {
+  id: string;
+  project_id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  tool_calls?: any[];
+  created_at: string;
+}
+
+export interface ProjectFile {
+  id: string;
+  project_id: string;
+  path: string;
+  content: string;
+  language?: string;
+  created_at: string;
+  updated_at: string;
 }
 ```
 
 ---
 
-### 2. **API Deploy** (Vercel/Netlify)
+## ⚡ III. SUPABASE EDGE FUNCTIONS (Thay API Routes)
 
+### 1. **Chat Edge Function**
+
+**File: `supabase/functions/chat/index.ts`**
 ```typescript
-interface DeploymentProvider {
-  name: 'vercel' | 'netlify' | 'cloudflare';
-  deploy(project: ProjectFiles): Promise<DeploymentResult>;
-  getStatus(deploymentId: string): Promise<DeploymentStatus>;
-}
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import OpenAI from 'https://esm.sh/openai@4';
 
-class VercelDeployer implements DeploymentProvider {
-  name = 'vercel' as const;
-  private client: VercelClient;
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
-  async deploy(project: ProjectFiles): Promise<DeploymentResult> {
-    // 1. Create deployment
-    const deployment = await this.client.deployments.create({
-      name: project.name,
-      files: project.files,
-      projectSettings: {
-        framework: 'nextjs',
-        buildCommand: 'npm run build',
-        outputDirectory: '.next'
+serve(async (req) => {
+  // Handle CORS
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    // Get user from auth header
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! },
+        },
       }
+    );
+
+    const {
+      data: { user },
+    } = await supabaseClient.auth.getUser();
+
+    if (!user) {
+      throw new Error('Not authenticated');
+    }
+
+    // Parse request body
+    const { message, projectId } = await req.json();
+
+    // Get project and conversation history
+    const { data: project } = await supabaseClient
+      .from('projects')
+      .select('*')
+      .eq('id', projectId)
+      .single();
+
+    const { data: messages } = await supabaseClient
+      .from('messages')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: true });
+
+    // Initialize OpenAI
+    const openai = new OpenAI({
+      apiKey: Deno.env.get('OPENAI_API_KEY'),
     });
 
-    // 2. Wait for build
-    const status = await this.waitForDeployment(deployment.id);
+    // Load Lovable system prompt
+    const SYSTEM_PROMPT = await Deno.readTextFile(
+      './prompts/lovable-system.txt'
+    );
 
-    return {
-      id: deployment.id,
-      url: deployment.url,
-      status: status.state,
-      logs: status.logs
+    // Build messages array
+    const chatMessages = [
+      {
+        role: 'system',
+        content: `${SYSTEM_PROMPT}\n\nProject Context:\n${JSON.stringify(project, null, 2)}`,
+      },
+      ...messages.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      })),
+      {
+        role: 'user',
+        content: message,
+      },
+    ];
+
+    // Call OpenAI
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4-turbo-preview',
+      messages: chatMessages as any,
+      temperature: 0.7,
+      max_tokens: 4000,
+    });
+
+    const response = completion.choices[0].message.content;
+
+    // Save user message
+    await supabaseClient.from('messages').insert({
+      project_id: projectId,
+      role: 'user',
+      content: message,
+    });
+
+    // Save assistant message
+    await supabaseClient.from('messages').insert({
+      project_id: projectId,
+      role: 'assistant',
+      content: response,
+    });
+
+    // Track usage
+    await supabaseClient.from('usage').insert({
+      user_id: user.id,
+      tokens: completion.usage?.total_tokens || 0,
+      type: 'chat',
+    });
+
+    return new Response(JSON.stringify({ response }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400,
+    });
+  }
+});
+```
+
+### 2. **Code Generation Edge Function**
+
+**File: `supabase/functions/codegen/index.ts`**
+```typescript
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import OpenAI from 'https://esm.sh/openai@4';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! },
+        },
+      }
+    );
+
+    const {
+      data: { user },
+    } = await supabaseClient.auth.getUser();
+
+    if (!user) throw new Error('Not authenticated');
+
+    const { requirement, projectId, componentSpec } = await req.json();
+
+    // Get project context
+    const { data: project } = await supabaseClient
+      .from('projects')
+      .select('*')
+      .eq('id', projectId)
+      .single();
+
+    // Initialize OpenAI
+    const openai = new OpenAI({
+      apiKey: Deno.env.get('OPENAI_API_KEY'),
+    });
+
+    // Load system prompt
+    const LOVABLE_PROMPT = await Deno.readTextFile(
+      './prompts/lovable-system.txt'
+    );
+
+    // Generate code
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4-turbo-preview',
+      messages: [
+        {
+          role: 'system',
+          content: LOVABLE_PROMPT,
+        },
+        {
+          role: 'user',
+          content: `Generate a React component for: ${requirement}\n\nComponent Spec: ${JSON.stringify(componentSpec)}\n\nProject Context: ${JSON.stringify(project.design_system)}`,
+        },
+      ],
+      temperature: 0.2,
+      max_tokens: 4000,
+    });
+
+    const generatedCode = completion.choices[0].message.content;
+
+    // Parse code (extract from markdown)
+    const codeMatch = generatedCode?.match(/```(?:typescript|tsx)?\n([\s\S]*?)```/);
+    const code = codeMatch ? codeMatch[1] : generatedCode;
+
+    // Save file to database
+    const filePath = componentSpec.filePath || 'src/components/Generated.tsx';
+    await supabaseClient.from('project_files').upsert({
+      project_id: projectId,
+      path: filePath,
+      content: code,
+      language: 'typescript',
+    });
+
+    return new Response(
+      JSON.stringify({
+        code,
+        filePath,
+        success: true,
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      }
+    );
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400,
+    });
+  }
+});
+```
+
+---
+
+## 🎨 IV. AI AGENT SYSTEM
+
+### 1. **Agent Tools (Lovable Compatible)**
+
+**File: `src/lib/agent-tools.ts`**
+```typescript
+export interface AgentTool {
+  name: string;
+  description: string;
+  parameters: Record<string, any>;
+  execute: (params: any, context: any) => Promise<any>;
+}
+
+// Tool: Write File
+export const writeFileTool: AgentTool = {
+  name: 'lov-write',
+  description: 'Write or create a file in the project',
+  parameters: {
+    file_path: 'string',
+    content: 'string',
+  },
+  execute: async (params, context) => {
+    const { file_path, content } = params;
+
+    // Call Supabase Edge Function to save file
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/write-file`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${context.accessToken}`,
+        },
+        body: JSON.stringify({
+          projectId: context.projectId,
+          filePath: file_path,
+          content,
+        }),
+      }
+    );
+
+    return await response.json();
+  },
+};
+
+// Tool: Search Files
+export const searchFilesTool: AgentTool = {
+  name: 'lov-search-files',
+  description: 'Search for code patterns in project files',
+  parameters: {
+    query: 'string (regex pattern)',
+    include_pattern: 'string (glob pattern)',
+  },
+  execute: async (params, context) => {
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-files`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${context.accessToken}`,
+        },
+        body: JSON.stringify({
+          projectId: context.projectId,
+          ...params,
+        }),
+      }
+    );
+
+    return await response.json();
+  },
+};
+
+// Tool: Read File
+export const readFileTool: AgentTool = {
+  name: 'lov-view',
+  description: 'Read contents of a file',
+  parameters: {
+    file_path: 'string',
+    lines: 'string (optional)',
+  },
+  execute: async (params, context) => {
+    const { file_path, lines } = params;
+
+    const { data, error } = await context.supabase
+      .from('project_files')
+      .select('content')
+      .eq('project_id', context.projectId)
+      .eq('path', file_path)
+      .single();
+
+    if (error) throw error;
+
+    let content = data.content;
+
+    if (lines) {
+      const [start, end] = lines.split('-').map(Number);
+      const allLines = content.split('\n');
+      content = allLines.slice(start - 1, end).join('\n');
+    }
+
+    return { content, filePath: file_path };
+  },
+};
+
+export const allTools: AgentTool[] = [
+  writeFileTool,
+  searchFilesTool,
+  readFileTool,
+];
+```
+
+---
+
+## 🌐 V. WEBCONTAINER INTEGRATION
+
+**File: `src/lib/webcontainer.ts`**
+```typescript
+import { WebContainer } from '@webcontainer/api';
+
+let webcontainerInstance: WebContainer;
+
+export async function bootWebContainer(): Promise<WebContainer> {
+  if (webcontainerInstance) return webcontainerInstance;
+
+  webcontainerInstance = await WebContainer.boot();
+  return webcontainerInstance;
+}
+
+export async function createViteProject(
+  projectName: string,
+  files: Record<string, string>
+): Promise<string> {
+  const container = await bootWebContainer();
+
+  // Create project structure for Vite
+  const fileTree: any = {
+    'package.json': {
+      file: {
+        contents: JSON.stringify(
+          {
+            name: projectName,
+            private: true,
+            version: '0.0.0',
+            type: 'module',
+            scripts: {
+              dev: 'vite',
+              build: 'vite build',
+              preview: 'vite preview',
+            },
+            dependencies: {
+              react: '^18.3.0',
+              'react-dom': '^18.3.0',
+            },
+            devDependencies: {
+              '@types/react': '^18.3.0',
+              '@types/react-dom': '^18.3.0',
+              '@vitejs/plugin-react': '^4.3.0',
+              typescript: '^5.5.0',
+              vite: '^5.4.0',
+              tailwindcss: '^3.4.0',
+              autoprefixer: '^10.4.0',
+              postcss: '^8.4.0',
+            },
+          },
+          null,
+          2
+        ),
+      },
+    },
+    'index.html': {
+      file: {
+        contents: `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${projectName}</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>`,
+      },
+    },
+    'vite.config.ts': {
+      file: {
+        contents: `import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+})`,
+      },
+    },
+    src: {
+      directory: {},
+    },
+  };
+
+  // Add user files
+  for (const [path, content] of Object.entries(files)) {
+    const parts = path.split('/');
+    let current = fileTree;
+
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!current[parts[i]]) {
+        current[parts[i]] = { directory: {} };
+      }
+      current = current[parts[i]].directory;
+    }
+
+    current[parts[parts.length - 1]] = {
+      file: { contents: content },
     };
   }
 
-  async getStatus(deploymentId: string): Promise<DeploymentStatus> {
-    return await this.client.deployments.get(deploymentId);
-  }
+  // Mount files
+  await container.mount(fileTree);
+
+  // Install dependencies
+  const installProcess = await container.spawn('npm', ['install']);
+  await installProcess.exit;
+
+  // Start dev server
+  const devProcess = await container.spawn('npm', ['run', 'dev']);
+
+  // Wait for server
+  container.on('server-ready', (port, url) => {
+    console.log('Vite dev server ready at:', url);
+  });
+
+  return container.url;
 }
 ```
 
 ---
 
-### 3. **GitHub Integration**
+## 📊 VI. STATE MANAGEMENT (Zustand)
 
+**File: `src/stores/chat-store.ts`**
 ```typescript
-class GitHubIntegration {
-  private octokit: Octokit;
+import { create } from 'zustand';
+import { Message } from '@/types';
 
-  async createRepository(
-    name: string,
-    isPrivate: boolean = false
-  ): Promise<Repository> {
-    const { data: repo } = await this.octokit.repos.createForAuthenticatedUser({
-      name,
-      private: isPrivate,
-      auto_init: true
-    });
+interface ChatStore {
+  messages: Message[];
+  projectId: string;
+  isStreaming: boolean;
 
-    return repo;
-  }
-
-  async pushCode(
-    owner: string,
-    repo: string,
-    files: FileTree,
-    message: string = 'Initial commit from Lovable'
-  ): Promise<void> {
-    // 1. Get the default branch
-    const { data: repoData } = await this.octokit.repos.get({ owner, repo });
-    const branch = repoData.default_branch;
-
-    // 2. Get the latest commit SHA
-    const { data: refData } = await this.octokit.git.getRef({
-      owner,
-      repo,
-      ref: `heads/${branch}`
-    });
-    const latestCommitSha = refData.object.sha;
-
-    // 3. Create blobs for all files
-    const blobs = await this.createBlobs(owner, repo, files);
-
-    // 4. Create tree
-    const { data: tree } = await this.octokit.git.createTree({
-      owner,
-      repo,
-      base_tree: latestCommitSha,
-      tree: blobs
-    });
-
-    // 5. Create commit
-    const { data: commit } = await this.octokit.git.createCommit({
-      owner,
-      repo,
-      message,
-      tree: tree.sha,
-      parents: [latestCommitSha]
-    });
-
-    // 6. Update reference
-    await this.octokit.git.updateRef({
-      owner,
-      repo,
-      ref: `heads/${branch}`,
-      sha: commit.sha
-    });
-  }
-
-  async createPullRequest(
-    owner: string,
-    repo: string,
-    head: string,
-    base: string,
-    title: string,
-    body: string
-  ): Promise<PullRequest> {
-    const { data: pr } = await this.octokit.pulls.create({
-      owner,
-      repo,
-      head,
-      base,
-      title,
-      body
-    });
-
-    return pr;
-  }
+  addMessage: (message: Message) => void;
+  updateMessage: (id: string, updates: Partial<Message>) => void;
+  clearMessages: () => void;
+  setProjectId: (id: string) => void;
+  setStreaming: (isStreaming: boolean) => void;
 }
+
+export const useChatStore = create<ChatStore>((set) => ({
+  messages: [],
+  projectId: '',
+  isStreaming: false,
+
+  addMessage: (message) =>
+    set((state) => ({
+      messages: [...state.messages, message],
+    })),
+
+  updateMessage: (id, updates) =>
+    set((state) => ({
+      messages: state.messages.map((msg) =>
+        msg.id === id ? { ...msg, ...updates } : msg
+      ),
+    })),
+
+  clearMessages: () => set({ messages: [] }),
+  setProjectId: (id) => set({ projectId: id }),
+  setStreaming: (isStreaming) => set({ isStreaming }),
+}));
 ```
 
----
-
-## 🔐 V. AUTHENTICATION & AUTHORIZATION
-
+**File: `src/stores/preview-store.ts`**
 ```typescript
-// Use Supabase Auth or Custom JWT
+import { create } from 'zustand';
 
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  avatar?: string;
-  subscription: 'free' | 'pro' | 'enterprise';
+interface PreviewStore {
+  url: string;
+  consoleLogs: any[];
+  networkRequests: any[];
+
+  setUrl: (url: string) => void;
+  addConsoleLog: (log: any) => void;
+  addNetworkRequest: (request: any) => void;
+  clearLogs: () => void;
+  reload: () => void;
 }
 
-class AuthService {
-  async signUp(email: string, password: string): Promise<User> {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password
-    });
+export const usePreviewStore = create<PreviewStore>((set, get) => ({
+  url: '',
+  consoleLogs: [],
+  networkRequests: [],
 
-    if (error) throw error;
-    return data.user;
-  }
+  setUrl: (url) => set({ url }),
 
-  async signIn(email: string, password: string): Promise<Session> {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
+  addConsoleLog: (log) =>
+    set((state) => ({
+      consoleLogs: [...state.consoleLogs, log],
+    })),
 
-    if (error) throw error;
-    return data.session;
-  }
+  addNetworkRequest: (request) =>
+    set((state) => ({
+      networkRequests: [...state.networkRequests, request],
+    })),
 
-  async getUser(): Promise<User | null> {
-    const { data } = await supabase.auth.getUser();
-    return data.user;
-  }
-}
+  clearLogs: () => set({ consoleLogs: [], networkRequests: [] }),
+
+  reload: () => {
+    const currentUrl = get().url;
+    set({ url: '' });
+    setTimeout(() => set({ url: currentUrl }), 100);
+  },
+}));
 ```
 
 ---
 
-## 📊 VI. ANALYTICS & MONITORING
+## 🔐 VII. AUTHENTICATION (Supabase Auth)
 
+**File: `src/lib/auth.ts`**
 ```typescript
-interface Analytics {
-  trackEvent(event: string, properties?: Record<string, any>): void;
-  trackPageView(page: string): void;
-  trackError(error: Error, context?: Record<string, any>): void;
+import { supabase } from './supabase';
+
+export async function signUp(email: string, password: string) {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+  });
+
+  if (error) throw error;
+  return data;
 }
 
-class AnalyticsService implements Analytics {
-  trackEvent(event: string, properties?: Record<string, any>): void {
-    // Send to PostHog / Mixpanel / Google Analytics
-    posthog.capture(event, properties);
-  }
+export async function signIn(email: string, password: string) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
 
-  trackPageView(page: string): void {
-    this.trackEvent('page_view', { page });
-  }
-
-  trackError(error: Error, context?: Record<string, any>): void {
-    // Send to Sentry
-    Sentry.captureException(error, { extra: context });
-  }
+  if (error) throw error;
+  return data;
 }
 
-// Usage tracking
-class UsageTracker {
-  async trackGeneration(userId: string, tokens: number): Promise<void> {
-    await db.usage.create({
-      data: {
-        userId,
-        tokens,
-        type: 'generation',
-        timestamp: new Date()
-      }
-    });
-  }
+export async function signOut() {
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
+}
 
-  async getRemainingCredits(userId: string): Promise<number> {
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      include: { subscription: true }
-    });
+export async function getUser() {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
+}
 
-    const used = await db.usage.aggregate({
-      where: {
-        userId,
-        timestamp: {
-          gte: startOfMonth(new Date())
-        }
-      },
-      _sum: { tokens: true }
-    });
+// GitHub OAuth
+export async function signInWithGitHub() {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'github',
+  });
 
-    return user.subscription.monthlyTokens - (used._sum.tokens || 0);
-  }
+  if (error) throw error;
+  return data;
 }
 ```
 
 ---
 
-## 🗄️ VII. DATABASE SCHEMA
+## 🚀 VIII. DEPLOYMENT
 
-```prisma
-// schema.prisma
+### Recommended Stack:
+- **Frontend (Vite)**: Vercel / Netlify / Cloudflare Pages
+- **Backend (Supabase)**: Supabase Cloud (auto-handled)
+- **Edge Functions**: Deploy via Supabase CLI
 
-model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String?
-  avatar        String?
-  subscription  Subscription?
-  projects      Project[]
-  usage         Usage[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-}
+### Deploy Commands:
+```bash
+# Build Vite app
+npm run build
 
-model Subscription {
-  id            String    @id @default(cuid())
-  userId        String    @unique
-  user          User      @relation(fields: [userId], references: [id])
-  plan          String    // 'free' | 'pro' | 'enterprise'
-  monthlyTokens Int       @default(50000)
-  status        String    @default("active")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-}
+# Deploy Edge Functions
+supabase functions deploy chat
+supabase functions deploy codegen
+supabase functions deploy project
 
-model Project {
-  id              String    @id @default(cuid())
-  name            String
-  description     String?
-  userId          String
-  user            User      @relation(fields: [userId], references: [id])
-  framework       String    @default("next") // 'next' | 'vite' | 'remix'
-  fileTree        Json
-  designSystem    Json
-  dependencies    Json
-  conversationId  String?
-  conversation    Conversation? @relation(fields: [conversationId], references: [id])
-  deployments     Deployment[]
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-}
-
-model Conversation {
-  id        String    @id @default(cuid())
-  messages  Message[]
-  projects  Project[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-}
-
-model Message {
-  id              String       @id @default(cuid())
-  conversationId  String
-  conversation    Conversation @relation(fields: [conversationId], references: [id])
-  role            String       // 'user' | 'assistant' | 'system'
-  content         String       @db.Text
-  toolCalls       Json?
-  createdAt       DateTime     @default(now())
-}
-
-model Deployment {
-  id          String    @id @default(cuid())
-  projectId   String
-  project     Project   @relation(fields: [projectId], references: [id])
-  provider    String    // 'vercel' | 'netlify' | 'cloudflare'
-  url         String
-  status      String    // 'pending' | 'building' | 'ready' | 'error'
-  logs        String?   @db.Text
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-}
-
-model Usage {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  tokens    Int
-  type      String   // 'generation' | 'chat'
-  timestamp DateTime @default(now())
-}
+# Deploy frontend to Vercel
+vercel --prod
 ```
 
 ---
 
-## 🚀 VIII. IMPLEMENTATION ROADMAP
+## 📝 SUMMARY
 
-### **Phase 1: Foundation (Tuần 1-2)**
-- [ ] Setup monorepo (Turborepo)
-- [ ] Initialize Next.js app
-- [ ] Setup database (Supabase)
-- [ ] Implement authentication
-- [ ] Basic UI layout (chat + preview)
+This architecture is **100% compatible** with Lovable's actual stack:
 
-### **Phase 2: AI Core (Tuần 3-4)**
-- [ ] Requirement parser
-- [ ] React code generator với prompt engineering
-- [ ] Basic agent system
-- [ ] Tool integration (file operations)
-- [ ] Error detection & fixing
+✅ **Frontend**: React + Vite + Tailwind
+✅ **Backend**: Supabase ONLY (no custom servers)
+✅ **API Layer**: Edge Functions (not Next.js API routes)
+✅ **Preview**: WebContainer for live Vite preview
+✅ **Real-time**: Supabase Realtime subscriptions
+✅ **AI**: OpenAI/Anthropic via Edge Functions
 
-### **Phase 3: Dev Environment (Tuần 5-6)**
-- [ ] WebContainer integration
-- [ ] File system API
-- [ ] Build pipeline
-- [ ] Live preview với HMR
-- [ ] Console log capture
-
-### **Phase 4: Advanced Features (Tuần 7-8)**
-- [ ] UI section generator
-- [ ] Design system customization
-- [ ] Component library
-- [ ] Image generation integration
-- [ ] Web search integration
-
-### **Phase 5: Collaboration & Export (Tuần 9-10)**
-- [ ] Real-time collaboration
-- [ ] Version control integration
-- [ ] Export to ZIP
-- [ ] Deploy to Vercel/Netlify
-- [ ] GitHub push
-
-### **Phase 6: Polish & Launch (Tuần 11-12)**
-- [ ] Performance optimization
-- [ ] Error handling
-- [ ] Analytics integration
-- [ ] Documentation
-- [ ] Beta testing
-- [ ] Public launch
+❌ **NOT SUPPORTED**: Next.js, backend runtimes, custom API routes
 
 ---
 
-## 📚 IX. TECH STACK SUMMARY
-
-| Layer | Technology |
-|-------|-----------|
-| **Frontend** | React 18, TypeScript, Vite, TailwindCSS, shadcn/ui |
-| **Backend** | Node.js, Express/Fastify, tRPC |
-| **Database** | PostgreSQL, Prisma ORM, Redis |
-| **AI/LLM** | OpenAI GPT-4, Anthropic Claude, LangChain |
-| **Real-time** | WebSocket (Socket.io), Server-Sent Events |
-| **Container** | WebContainer (StackBlitz) |
-| **Auth** | Supabase Auth hoặc NextAuth.js |
-| **Deployment** | Vercel, Netlify, Cloudflare Pages |
-| **Monitoring** | Sentry, PostHog, LogRocket |
-| **Vector DB** | Pinecone, Weaviate (cho semantic search) |
-| **File Storage** | S3, Cloudflare R2 |
-
----
-
-## 🎯 X. KEY DIFFERENTIATORS
-
-So với Lovable, có thể thêm:
-
-1. **Multi-framework support**: Next.js, Remix, Astro (không chỉ Vite)
-2. **Advanced AI models**: Support nhiều models (GPT-4, Claude, Gemini)
-3. **Collaboration**: Real-time collaborative editing
-4. **Version control**: Built-in git integration
-5. **Component marketplace**: Share/reuse components
-6. **Custom design systems**: Import Figma tokens
-7. **A/B testing**: Built-in experimentation
-8. **Performance insights**: Lighthouse integration
-9. **SEO analyzer**: Real-time SEO suggestions
-10. **Accessibility checker**: WCAG compliance
-
----
-
-## 📖 XI. LEARNING RESOURCES
-
-- **Lovable Prompt**: `/Lovable/Agent Prompt.txt`
-- **Bolt Prompt**: `/Open Source prompts/Bolt/Prompt.txt`
-- **Cursor Tools**: `/Cursor Prompts/Agent Tools v1.0.json`
-- **v0 Approach**: `/v0 Prompts and Tools/`
-- **WebContainer**: https://webcontainers.io
-- **LangChain**: https://js.langchain.com
-- **shadcn/ui**: https://ui.shadcn.com
-
----
-
-## 🤝 XII. CONTRIBUTION GUIDELINES
-
-```markdown
-# Contribution Guidelines
-
-## Code Style
-- TypeScript strict mode
-- ESLint + Prettier
-- Conventional Commits
-
-## Pull Request Process
-1. Fork the repo
-2. Create feature branch
-3. Write tests
-4. Submit PR with description
-
-## Testing Requirements
-- Unit tests (Vitest)
-- Integration tests (Playwright)
-- E2E tests (Cypress)
-```
-
----
-
-**Tổng kết**: Document này cung cấp blueprint hoàn chỉnh để build một Lovable clone với đầy đủ tính năng. Mỗi section đều có implementation details và code examples. Bắt đầu với Phase 1 và iterate từng bước!
+**Next Steps**: See implementation guides for code examples!
