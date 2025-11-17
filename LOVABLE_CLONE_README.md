@@ -1,31 +1,71 @@
 # 🚀 Lovable Clone - Complete Implementation Package
 
-> **10,000+ dòng code production-ready** để build AI-powered code generation platform
+> **CORRECT TECH STACK** - React + Vite + Supabase Edge Functions (Đúng như Lovable thật!)
 
 ---
 
-## ⚡ START HERE (For Beginners)
+## ⚠️ IMPORTANT: TECH STACK ĐÚNG
 
-### 🎯 **LOVABLE_CLONE_IMPLEMENTATION_GUIDE.md** - SIMPLE & CLEAR
+### **Lovable's ACTUAL Stack:**
+```
+Frontend:  React 18 + Vite + TypeScript (NOT Next.js!)
+Backend:   Supabase Edge Functions (NOT API routes!)
+Database:  Supabase PostgreSQL
+Preview:   WebContainer (StackBlitz)
+Styling:   Tailwind CSS + shadcn/ui
+State:     Zustand
+```
 
-**Nếu bạn muốn build nhanh một working product (8 ngày):**
-- ✅ Step-by-step implementation (Day 1 → Day 8)
-- ✅ Core features only (Chat + AI + Files + Preview)
-- ✅ ~800 lines of code (simple to understand)
-- ✅ No complex integrations
-- ✅ Perfect để AI agent có thể follow
+### **❌ KHÔNG HỖ TRỢ:**
+- Next.js, Angular, Vue, Svelte
+- Backend runtimes (Python, Node.js server)
+- Custom API routes
 
-👉 **Bắt đầu với file này trước nếu bạn:**
-- Là beginner
-- Muốn prototype nhanh
-- Muốn hiểu core functionality
-- Sẽ dùng AI để generate code
+---
+
+## ⚡ START HERE
+
+### 🎯 **LOVABLE_CLONE_ARCHITECTURE.md** - CORRECT & COMPLETE
+
+**File này đã được REBUILD hoàn toàn với correct stack:**
+- ✅ React + Vite setup (100% đúng)
+- ✅ Supabase Edge Functions examples
+- ✅ WebContainer integration
+- ✅ Zustand state management
+- ✅ NO references to v0, Gemini, Cursor, Bolt
+
+👉 **Bắt đầu với file này để:**
+- Hiểu correct architecture
+- Xem Edge Functions examples
+- Follow Lovable's actual patterns
+
+---
+
+## ⚠️ CLEANUP STATUS (Updated 2025-11-17)
+
+### ✅ **FIXED (3 files):**
+1. **LOVABLE_CLONE_ARCHITECTURE.md** - Completely rebuilt với React+Vite+Edge Functions
+2. **LOVABLE_CLONE_NEXTJS_SUPABASE.md** - DELETED (wrong stack)
+3. **LOVABLE_CLONE_NEXTJS_SUPABASE_PART2.md** - DELETED (wrong stack)
+
+### ⚠️ **STILL NEEDS CLEANUP (8 files):**
+These files still contain Next.js/API routes references and need updating:
+1. LOVABLE_CLONE_IMPLEMENTATION_GUIDE.md (11 Next.js refs)
+2. LOVABLE_CLONE_QUICK_START.md (needs Vite setup)
+3. LOVABLE_CLONE_CODE_TEMPLATES.md (API routes → Edge Functions)
+4. LOVABLE_CLONE_GITHUB_PRICING.md (API routes → Edge Functions)
+5. LOVABLE_CLONE_FRONTEND_TEMPLATES.md (Next.js components → Vite)
+6. LOVABLE_CLONE_DEPLOYMENT_GUIDE.md (Next.js deploy → Vite deploy)
+7. LOVABLE_CLONE_ADVANCED_FEATURES.md (Next.js patterns)
+8. LOVABLE_CLONE_CONFIG_TEMPLATES.md (Next.js configs)
+
+**Recommendation:** Use **ARCHITECTURE.md** as the source of truth. Other files will be updated progressively.
 
 ---
 
 ## 📦 Complete Package Contents
 
-Bạn hiện có **14 documents chi tiết** với **387KB code**:
+Bạn hiện có **12 documents** (2 files deleted):
 
 | File | Size | Lines | Description |
 |------|------|-------|-------------|
