@@ -30,7 +30,7 @@ npm run test:e2e
 npm run build
 
 # Check bundle size
-npx @next/bundle-analyzer
+npx vite-bundle-visualizer
 ```
 
 ## 2. Security Audit
@@ -218,10 +218,10 @@ supabase secrets set \
 ## 2. Configure Build Settings
 
 ```
-Framework Preset: Next.js
+Framework Preset: Vite
 Root Directory: ./
 Build Command: npm run build
-Output Directory: .next
+Output Directory: dist
 Install Command: npm ci
 
 Node.js Version: 18.x
@@ -231,8 +231,8 @@ Node.js Version: 18.x
 
 ```env
 # Production environment variables
-NEXT_PUBLIC_SUPABASE_URL=https://[your-ref].supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+VITE_SUPABASE_URL=https://[your-ref].supabase.co
+VITE_SUPABASE_ANON_KEY=eyJ...
 
 # Service role (for admin operations)
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
@@ -246,21 +246,21 @@ ANTHROPIC_API_KEY=sk-ant-...
 # Stripe
 STRIPE_SECRET_KEY=sk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
+VITE_STRIPE_PUBLISHABLE_KEY=pk_live_...
 
 # Email
 RESEND_API_KEY=re_...
 FROM_EMAIL=noreply@yourdomain.com
 
 # Monitoring
-NEXT_PUBLIC_SENTRY_DSN=https://...@sentry.io/...
+VITE_SENTRY_DSN=https://...@sentry.io/...
 SENTRY_AUTH_TOKEN=sntrys_...
 SENTRY_ORG=your-org
 SENTRY_PROJECT=lovable-clone
 
 # Analytics
-NEXT_PUBLIC_POSTHOG_KEY=phc_...
-NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
+VITE_POSTHOG_KEY=phc_...
+VITE_POSTHOG_HOST=https://app.posthog.com
 
 # Rate Limiting
 UPSTASH_REDIS_REST_URL=https://...upstash.io
@@ -294,7 +294,7 @@ vercel ls
 # Test endpoints
 curl https://your-domain.com/api/health
 
-# Check SSR
+# Check CSR
 curl https://your-domain.com
 
 # Test authentication
@@ -351,7 +351,7 @@ Value: [your-ref].supabase.co
 # Should show: "SSL Certificate Valid"
 
 # Force HTTPS redirect
-# Already handled by next.config.js headers
+# Already handled by vite.config.ts headers
 ```
 
 ---
@@ -362,15 +362,15 @@ Value: [your-ref].supabase.co
 
 ```bash
 # Production
-NEXT_PUBLIC_SUPABASE_URL=production-url
+VITE_SUPABASE_URL=production-url
 SUPABASE_SERVICE_ROLE_KEY=production-key
 
 # Preview (for PRs)
-NEXT_PUBLIC_SUPABASE_URL=staging-url
+VITE_SUPABASE_URL=staging-url
 SUPABASE_SERVICE_ROLE_KEY=staging-key
 
 # Development (local)
-NEXT_PUBLIC_SUPABASE_URL=local-url
+VITE_SUPABASE_URL=local-url
 SUPABASE_SERVICE_ROLE_KEY=local-key
 ```
 
@@ -457,14 +457,14 @@ echo "Backup completed: $DATE"
 
 ```typescript
 // Already enabled in layout.tsx
-import { Analytics } from '@vercel/analytics/react';
+// Use PostHog or other analytics;
 
 export default function RootLayout({ children }) {
   return (
     <html>
       <body>
         {children}
-        <Analytics />
+        // Add your analytics component
       </body>
     </html>
   );
@@ -475,14 +475,14 @@ export default function RootLayout({ children }) {
 
 ```bash
 # Install Sentry
-npm install @sentry/nextjs
+npm install @sentry/react
 
 # Run Sentry wizard
-npx @sentry/wizard@latest -i nextjs
+npx @sentry/wizard@latest -i react
 
-# Configure in sentry.client.config.ts
+# Configure in sentry.config.ts
 Sentry.init({
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+  dsn: process.env.VITE_SENTRY_DSN,
   tracesSampleRate: 1.0,
   replaysSessionSampleRate: 0.1,
   replaysOnErrorSampleRate: 1.0
@@ -499,7 +499,7 @@ Sentry.init({
 
 # Monitor endpoints:
 - https://yourdomain.com (main site)
-- https://yourdomain.com/api/health (API health)
+- https://[your-ref].supabase.co/functions/v1/health (API health)
 - https://[ref].supabase.co (database)
 ```
 
@@ -541,7 +541,7 @@ lhci autorun
 ```bash
 # Test critical paths
 curl -f https://yourdomain.com || exit 1
-curl -f https://yourdomain.com/api/health || exit 1
+curl -f https://[your-ref].supabase.co/functions/v1/health || exit 1
 
 # Test authentication
 # - Sign up new user
@@ -792,7 +792,7 @@ npm outdated
 
 - **Vercel Docs**: https://vercel.com/docs
 - **Supabase Docs**: https://supabase.com/docs
-- **Next.js Docs**: https://nextjs.org/docs
+- **Vite Docs**: https://vitejs.dev/guide/
 
 ## Need Help?
 

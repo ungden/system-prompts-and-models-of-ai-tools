@@ -1,3 +1,4 @@
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 # 🚀 Lovable Clone - GitHub Integration & Pricing Plans
 
 > Complete guide để tích hợp GitHub và thiết kế subscription model
@@ -64,7 +65,7 @@ GITHUB_CLIENT_SECRET=your_client_secret
 GITHUB_REDIRECT_URI=http://localhost:3000/api/auth/github/callback
 
 # Production
-NEXT_PUBLIC_APP_URL=https://yourdomain.com
+VITE_APP_URL=https://yourdomain.com
 ```
 
 ## 2. Database Schema
@@ -308,10 +309,10 @@ export class GitHubOAuth {
 
 ## 4. OAuth API Routes
 
-**File: `src/app/api/auth/github/route.ts`**
+**File: `supabase/functions/github-auth/index.ts`**
 
 ```typescript
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, Response } ;
 import { createClient } from '@/lib/supabase/server';
 import { GitHubOAuth } from '@/lib/github/oauth';
 import { nanoid } from 'nanoid';
@@ -322,14 +323,14 @@ export async function GET(request: NextRequest) {
   // Check if user is authenticated
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    return Response.redirect(new URL('/login', request.url));
   }
 
   // Generate state for CSRF protection
   const state = nanoid();
 
   // Store state in session
-  const response = NextResponse.redirect(
+  const response = Response.redirect(
     new GitHubOAuth().getAuthorizationUrl(state)
   );
 
@@ -344,10 +345,10 @@ export async function GET(request: NextRequest) {
 }
 ```
 
-**File: `src/app/api/auth/github/callback/route.ts`**
+**File: `supabase/functions/github-callback/index.ts`**
 
 ```typescript
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, Response } ;
 import { createClient } from '@/lib/supabase/server';
 import { GitHubOAuth } from '@/lib/github/oauth';
 
@@ -359,13 +360,13 @@ export async function GET(request: NextRequest) {
 
   // Verify state
   if (!state || !storedState || state !== storedState) {
-    return NextResponse.redirect(
+    return Response.redirect(
       new URL('/dashboard?error=invalid_state', request.url)
     );
   }
 
   if (!code) {
-    return NextResponse.redirect(
+    return Response.redirect(
       new URL('/dashboard?error=no_code', request.url)
     );
   }
@@ -375,7 +376,7 @@ export async function GET(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.redirect(new URL('/login', request.url));
+      return Response.redirect(new URL('/login', request.url));
     }
 
     const github = new GitHubOAuth();
@@ -390,7 +391,7 @@ export async function GET(request: NextRequest) {
     await github.saveConnection(user.id, tokenData, userData);
 
     // Redirect to dashboard
-    const response = NextResponse.redirect(
+    const response = Response.redirect(
       new URL('/dashboard?github=connected', request.url)
     );
 
@@ -401,7 +402,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('GitHub OAuth error:', error);
-    return NextResponse.redirect(
+    return Response.redirect(
       new URL('/dashboard?error=github_auth_failed', request.url)
     );
   }
@@ -625,10 +626,10 @@ export class GitHubClient {
 
 ## 2. Repository Management API
 
-**File: `src/app/api/github/repositories/route.ts`**
+**File: `supabase/functions/github-repos/index.ts`**
 
 ```typescript
-import { NextResponse } from 'next/server';
+import { Response } ;
 import { createClient } from '@/lib/supabase/server';
 import { GitHubOAuth } from '@/lib/github/oauth';
 import { GitHubClient } from '@/lib/github/client';
@@ -638,7 +639,7 @@ export async function GET() {
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
@@ -647,7 +648,7 @@ export async function GET() {
     const connection = await github.getConnection(user.id);
 
     if (!connection) {
-      return NextResponse.json(
+      return Response.json(
         { error: 'GitHub not connected' },
         { status: 400 }
       );
@@ -657,23 +658,23 @@ export async function GET() {
     const client = new GitHubClient(connection.access_token);
     const repositories = await client.listRepositories();
 
-    return NextResponse.json({ repositories });
+    return Response.json({ repositories });
 
   } catch (error: any) {
     console.error('Failed to list repositories:', error);
-    return NextResponse.json(
+    return Response.json(
       { error: 'Failed to list repositories' },
       { status: 500 }
     );
   }
 }
 
-export async function POST(request: Request) {
+serve(async (req) =>(request: Request) {
   const supabase = createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
@@ -684,7 +685,7 @@ export async function POST(request: Request) {
     const connection = await github.getConnection(user.id);
 
     if (!connection) {
-      return NextResponse.json(
+      return Response.json(
         { error: 'GitHub not connected' },
         { status: 400 }
       );
@@ -711,11 +712,11 @@ export async function POST(request: Request) {
       is_private: repo.private
     });
 
-    return NextResponse.json({ repository: repo });
+    return Response.json({ repository: repo });
 
   } catch (error: any) {
     console.error('Failed to create repository:', error);
-    return NextResponse.json(
+    return Response.json(
       { error: error.message || 'Failed to create repository' },
       { status: 500 }
     );
@@ -888,26 +889,26 @@ export class GitHubPushService {
 
 ## 2. Push API Route
 
-**File: `src/app/api/github/push/route.ts`**
+**File: `supabase/functions/github-push/index.ts`**
 
 ```typescript
-import { NextResponse } from 'next/server';
+import { Response } ;
 import { createClient } from '@/lib/supabase/server';
 import { GitHubPushService } from '@/lib/github/push-service';
 
-export async function POST(request: Request) {
+serve(async (req) =>(request: Request) {
   const supabase = createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
     const { projectId, commitMessage, branch } = await request.json();
 
     if (!projectId) {
-      return NextResponse.json(
+      return Response.json(
         { error: 'Project ID is required' },
         { status: 400 }
       );
@@ -922,7 +923,7 @@ export async function POST(request: Request) {
       .single();
 
     if (!project) {
-      return NextResponse.json(
+      return Response.json(
         { error: 'Project not found' },
         { status: 404 }
       );
@@ -938,13 +939,13 @@ export async function POST(request: Request) {
     });
 
     if (!result.success) {
-      return NextResponse.json(
+      return Response.json(
         { error: result.error },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({
+    return Response.json({
       success: true,
       commitSha: result.commitSha,
       url: result.url
@@ -952,7 +953,7 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error('Push failed:', error);
-    return NextResponse.json(
+    return Response.json(
       { error: error.message || 'Push failed' },
       { status: 500 }
     );
@@ -965,7 +966,7 @@ export async function POST(request: Request) {
 **File: `src/components/github/push-button.tsx`**
 
 ```typescript
-'use client';
+
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -1002,7 +1003,7 @@ export function PushButton({ projectId, disabled }: PushButtonProps) {
     setPushing(true);
 
     try {
-      const response = await fetch('/api/github/push', {
+      const response = await supabase.functions.invoke(github/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1103,7 +1104,7 @@ export function PushButton({ projectId, disabled }: PushButtonProps) {
 
 ## 1. Setup GitHub Webhook
 
-**Webhook URL**: `https://yourdomain.com/api/webhooks/github`
+**Webhook URL**: `https://[your-ref].supabase.co/functions/v1/webhooks/github`
 
 **Events to subscribe**:
 - `push` - Detect external changes
@@ -1112,14 +1113,14 @@ export function PushButton({ projectId, disabled }: PushButtonProps) {
 
 ## 2. Webhook Handler
 
-**File: `src/app/api/webhooks/github/route.ts`**
+**File: `supabase/functions/webhook-github/index.ts`**
 
 ```typescript
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, Response } ;
 import { createClient } from '@/lib/supabase/server';
 import { verifyWebhookSignature } from '@/lib/github/webhook-verify';
 
-export async function POST(request: NextRequest) {
+serve(async (req) =>(request: NextRequest) {
   try {
     // Verify webhook signature
     const payload = await request.text();
@@ -1127,7 +1128,7 @@ export async function POST(request: NextRequest) {
     const event = request.headers.get('x-github-event');
 
     if (!verifyWebhookSignature(payload, signature)) {
-      return NextResponse.json(
+      return Response.json(
         { error: 'Invalid signature' },
         { status: 401 }
       );
@@ -1148,11 +1149,11 @@ export async function POST(request: NextRequest) {
         break;
     }
 
-    return NextResponse.json({ success: true });
+    return Response.json({ success: true });
 
   } catch (error) {
     console.error('Webhook error:', error);
-    return NextResponse.json(
+    return Response.json(
       { error: 'Webhook processing failed' },
       { status: 500 }
     );
@@ -1438,7 +1439,7 @@ npm install stripe @stripe/stripe-js
 # Stripe
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
 ```
 
 ## 2. Stripe Client
@@ -1519,8 +1520,8 @@ export async function createCheckoutSession(
         quantity: 1
       }
     ],
-    success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?payment=success`,
-    cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing?payment=canceled`,
+    success_url: `${process.env.VITE_APP_URL}/dashboard?payment=success`,
+    cancel_url: `${process.env.VITE_APP_URL}/pricing?payment=canceled`,
     metadata: {
       user_id: userId,
       plan_id: planId
@@ -1538,7 +1539,7 @@ export async function createPortalSession(
 ): Promise<string> {
   const session = await stripe.billingPortal.sessions.create({
     customer: customerId,
-    return_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/billing`
+    return_url: `${process.env.VITE_APP_URL}/dashboard/billing`
   });
 
   return session.url;
@@ -1547,26 +1548,26 @@ export async function createPortalSession(
 
 ## 3. Checkout API
 
-**File: `src/app/api/stripe/checkout/route.ts`**
+**File: `supabase/functions/stripe-checkout/index.ts`**
 
 ```typescript
-import { NextResponse } from 'next/server';
+import { Response } ;
 import { createClient } from '@/lib/supabase/server';
 import { createCheckoutSession } from '@/lib/stripe/client';
 
-export async function POST(request: Request) {
+serve(async (req) =>(request: Request) {
   const supabase = createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
     const { planId, billingCycle } = await request.json();
 
     if (!planId || !billingCycle) {
-      return NextResponse.json(
+      return Response.json(
         { error: 'Missing required fields' },
         { status: 400 }
       );
@@ -1580,11 +1581,11 @@ export async function POST(request: Request) {
       billingCycle
     );
 
-    return NextResponse.json({ url: checkoutUrl });
+    return Response.json({ url: checkoutUrl });
 
   } catch (error: any) {
     console.error('Checkout error:', error);
-    return NextResponse.json(
+    return Response.json(
       { error: error.message || 'Checkout failed' },
       { status: 500 }
     );
@@ -1594,15 +1595,15 @@ export async function POST(request: Request) {
 
 ## 4. Stripe Webhook Handler
 
-**File: `src/app/api/webhooks/stripe/route.ts`**
+**File: `supabase/functions/webhook-stripe/index.ts`**
 
 ```typescript
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, Response } ;
 import { stripe } from '@/lib/stripe/client';
 import { createClient } from '@/lib/supabase/server';
 import Stripe from 'stripe';
 
-export async function POST(request: NextRequest) {
+serve(async (req) =>(request: NextRequest) {
   const body = await request.text();
   const signature = request.headers.get('stripe-signature')!;
 
@@ -1616,7 +1617,7 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: any) {
     console.error('Webhook signature verification failed:', error.message);
-    return NextResponse.json(
+    return Response.json(
       { error: 'Invalid signature' },
       { status: 400 }
     );
@@ -1647,11 +1648,11 @@ export async function POST(request: NextRequest) {
         break;
     }
 
-    return NextResponse.json({ received: true });
+    return Response.json({ received: true });
 
   } catch (error) {
     console.error('Webhook handler error:', error);
-    return NextResponse.json(
+    return Response.json(
       { error: 'Webhook handler failed' },
       { status: 500 }
     );
@@ -1787,7 +1788,7 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
 **File: `src/app/pricing/page.tsx`**
 
 ```typescript
-'use client';
+
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -1870,7 +1871,7 @@ export default function PricingPage() {
     setLoading(planId);
 
     try {
-      const response = await fetch('/api/stripe/checkout', {
+      const response = await supabase.functions.invoke(stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId, billingCycle })
@@ -2232,7 +2233,7 @@ export function useFeatureGate(feature: string) {
   async function checkFeature() {
     setLoading(true);
     try {
-      const response = await fetch(`/api/features/check?feature=${feature}`);
+      const response = await supabase.functions.invoke(features/check?feature=${feature}`);
       const data = await response.json();
       setAccess(data);
     } catch (error) {
@@ -2248,10 +2249,10 @@ export function useFeatureGate(feature: string) {
 
 ## 3. Feature Gate API
 
-**File: `src/app/api/features/check/route.ts`**
+**File: `supabase/functions/feature-check/index.ts`**
 
 ```typescript
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, Response } ;
 import { createClient } from '@/lib/supabase/server';
 import { FeatureGate } from '@/lib/subscription/feature-gate';
 
@@ -2260,12 +2261,12 @@ export async function GET(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const feature = request.nextUrl.searchParams.get('feature');
   if (!feature) {
-    return NextResponse.json(
+    return Response.json(
       { error: 'Feature parameter required' },
       { status: 400 }
     );
@@ -2274,7 +2275,7 @@ export async function GET(request: NextRequest) {
   const gate = new FeatureGate();
   const access = await gate.checkFeature(user.id, feature);
 
-  return NextResponse.json(access);
+  return Response.json(access);
 }
 ```
 
@@ -2283,7 +2284,7 @@ export async function GET(request: NextRequest) {
 **File: `src/components/subscription/upgrade-modal.tsx`**
 
 ```typescript
-'use client';
+
 
 import {
   Dialog,
@@ -2349,7 +2350,7 @@ export function UpgradeModal({
 
 ```typescript
 import { createClient } from '@/lib/supabase/server';
-import { NextResponse } from 'next/server';
+import { Response } ;
 
 export async function checkQuota(userId: string, tokensToUse: number) {
   const supabase = createClient();
@@ -2398,7 +2399,7 @@ export async function checkQuota(userId: string, tokensToUse: number) {
 **File: `src/components/dashboard/quota-display.tsx`**
 
 ```typescript
-'use client';
+
 
 import { useEffect, useState } from 'react';
 import { Progress } from '@/components/ui/progress';
@@ -2421,7 +2422,7 @@ export function QuotaDisplay() {
 
   async function fetchQuota() {
     try {
-      const response = await fetch('/api/usage/quota');
+      const response = await supabase.functions.invoke(usage/quota');
       const data = await response.json();
       setQuota(data);
     } catch (error) {
@@ -2476,10 +2477,10 @@ export function QuotaDisplay() {
 
 ## 3. Quota API
 
-**File: `src/app/api/usage/quota/route.ts`**
+**File: `supabase/functions/usage-quota/index.ts`**
 
 ```typescript
-import { NextResponse } from 'next/server';
+import { Response } ;
 import { createClient } from '@/lib/supabase/server';
 
 export async function GET() {
@@ -2487,7 +2488,7 @@ export async function GET() {
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const { data: profile } = await supabase
@@ -2497,12 +2498,12 @@ export async function GET() {
     .single();
 
   if (!profile) {
-    return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+    return Response.json({ error: 'Profile not found' }, { status: 404 });
   }
 
   const percentage = (profile.tokens_used_this_month / profile.monthly_tokens) * 100;
 
-  return NextResponse.json({
+  return Response.json({
     used: profile.tokens_used_this_month,
     total: profile.monthly_tokens,
     percentage,
@@ -2729,14 +2730,14 @@ GITHUB_WEBHOOK_SECRET=
 # Stripe
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+VITE_STRIPE_PUBLISHABLE_KEY=
 
 # App
-NEXT_PUBLIC_APP_URL=
+VITE_APP_URL=
 
 # Supabase (already configured)
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 

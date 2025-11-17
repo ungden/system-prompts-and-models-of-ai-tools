@@ -1,6 +1,6 @@
-# 🚀 Lovable Clone - Implementation Guide (Simple & Clear)
+# 🚀 Lovable Clone - Implementation Guide (React + Vite)
 
-> Step-by-step guide để build Lovable Clone với core features only. No complexity, just what works.
+> Step-by-step để build Lovable Clone ĐÚNG tech stack - React + Vite + Supabase Edge Functions
 
 ---
 
@@ -8,108 +8,199 @@
 
 ### Core Features (MVP)
 1. ✅ **Chat Interface** - Chat với AI để generate code
-2. ✅ **AI Agent** - Process requests và generate code
+2. ✅ **AI Agent** - Process requests và generate React components
 3. ✅ **File Manager** - Display và manage project files
-4. ✅ **Live Preview** - Preview app trong iframe
+4. ✅ **Live Preview** - Preview app trong iframe (WebContainer)
 5. ✅ **Code Editor** - Edit code trực tiếp
 6. ✅ **Project Management** - Save/load projects
 
-### Tech Stack
+### Tech Stack (Đúng như Lovable!)
 ```
-Frontend:  Next.js 14 + TypeScript + Tailwind CSS
-Backend:   Next.js API Routes + Supabase
+Frontend:  React 18 + Vite + TypeScript + Tailwind CSS
+Backend:   Supabase Edge Functions (Deno runtime)
 AI:        OpenAI GPT-4 hoặc Anthropic Claude
-Preview:   iframe với static HTML/JS/CSS
-Database:  Supabase (PostgreSQL)
+Preview:   WebContainer (StackBlitz) - Live Vite preview
+Database:  Supabase PostgreSQL
 Auth:      Supabase Auth
+State:     Zustand
 ```
 
 ---
 
-## 🎯 PHASE 1: Basic Setup (Day 1)
+## 🎯 DAY 1: Setup Project
 
-### Step 1: Create Next.js Project
+### Step 1: Create Vite Project
 
 ```bash
-npx create-next-app@latest lovable-clone --typescript --tailwind --app
+# Create Vite + React + TypeScript project
+npm create vite@latest lovable-clone -- --template react-ts
 cd lovable-clone
 ```
 
 ### Step 2: Install Dependencies
 
 ```bash
-# Core
-npm install @supabase/supabase-js @supabase/ssr
-npm install openai
+# Core dependencies
+npm install @supabase/supabase-js
 npm install zustand
 npm install react-markdown
 npm install lucide-react
 
-# UI Components
+# WebContainer for live preview
+npm install @webcontainer/api
+
+# UI Components (shadcn/ui)
 npm install @radix-ui/react-dialog
 npm install @radix-ui/react-dropdown-menu
-npm install @radix-ui/react-slot
+npm install @radix-ui/react-scroll-area
+npm install @radix-ui/react-tabs
 npm install class-variance-authority clsx tailwind-merge
-npm install sonner
+
+# Code editor
+npm install @monaco-editor/react
+
+# Tailwind
+npm install -D tailwindcss postcss autoprefixer
+npx tailwindcss init -p
 ```
 
-### Step 3: Setup Supabase
+### Step 3: Configure Tailwind
 
-**File: `.env.local`**
+**File: `tailwind.config.js`**
+```js
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+```
+
+**File: `src/index.css`**
+```css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+
+### Step 4: Setup Environment Variables
+
+**File: `.env`**
 ```env
 # Supabase
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+VITE_SUPABASE_URL=https://xxxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJxxx...
 
 # OpenAI
-OPENAI_API_KEY=sk-...
-
-# App
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+VITE_OPENAI_API_KEY=sk-...
 ```
 
-### Step 4: Database Schema
+### Step 5: Project Structure
 
-**File: `supabase/migrations/20240101000000_init.sql`**
+```bash
+mkdir -p src/{components/{chat,preview,sidebar,editor,ui},lib,stores,types}
+mkdir -p supabase/{functions,migrations}
+```
+
+Final structure:
+```
+lovable-clone/
+├── src/
+│   ├── components/
+│   │   ├── chat/
+│   │   │   ├── ChatPanel.tsx
+│   │   │   ├── ChatMessage.tsx
+│   │   │   └── ChatInput.tsx
+│   │   ├── preview/
+│   │   │   ├── LivePreview.tsx
+│   │   │   └── ConsolePanel.tsx
+│   │   ├── sidebar/
+│   │   │   ├── Sidebar.tsx
+│   │   │   ├── SectionsPanel.tsx
+│   │   │   └── FilesPanel.tsx
+│   │   ├── editor/
+│   │   │   └── CodeEditor.tsx
+│   │   └── ui/
+│   ├── lib/
+│   │   ├── supabase.ts
+│   │   ├── webcontainer.ts
+│   │   └── agent-tools.ts
+│   ├── stores/
+│   │   ├── chat-store.ts
+│   │   ├── preview-store.ts
+│   │   └── project-store.ts
+│   ├── types/
+│   │   └── index.ts
+│   ├── App.tsx
+│   ├── main.tsx
+│   └── index.css
+├── supabase/
+│   ├── functions/
+│   │   ├── chat/
+│   │   └── codegen/
+│   └── migrations/
+├── index.html
+├── vite.config.ts
+├── tailwind.config.js
+└── package.json
+```
+
+---
+
+## 🎯 DAY 2: Database Setup
+
+### Step 1: Create Supabase Project
+
+1. Go to https://supabase.com
+2. Create new project
+3. Copy URL and anon key to `.env`
+
+### Step 2: Database Schema
+
+**File: `supabase/migrations/001_initial.sql`**
 
 ```sql
--- Users table (handled by Supabase Auth)
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Projects table
 CREATE TABLE public.projects (
-  id uuid default uuid_generate_v4() primary key,
-  user_id uuid references auth.users(id) on delete cascade not null,
-  name text not null,
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  name text NOT NULL,
   description text,
-  file_tree jsonb default '{}'::jsonb,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
+  file_tree jsonb DEFAULT '{}'::jsonb,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
 );
 
 -- Project files
 CREATE TABLE public.project_files (
-  id uuid default uuid_generate_v4() primary key,
-  project_id uuid references public.projects(id) on delete cascade not null,
-  path text not null,
-  content text not null,
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  project_id uuid REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL,
+  path text NOT NULL,
+  content text NOT NULL,
   language text,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now(),
-
-  unique(project_id, path)
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(project_id, path)
 );
 
 -- Chat messages
 CREATE TABLE public.messages (
-  id uuid default uuid_generate_v4() primary key,
-  project_id uuid references public.projects(id) on delete cascade not null,
-  role text not null, -- 'user' | 'assistant'
-  content text not null,
-  created_at timestamptz default now()
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  project_id uuid REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL,
+  role text NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
+  content text NOT NULL,
+  created_at timestamptz DEFAULT now()
 );
 
--- Enable RLS
+-- Enable Row Level Security
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.project_files ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
@@ -140,61 +231,77 @@ CREATE POLICY "Users can manage messages"
   );
 ```
 
-Run migration:
-```bash
-# Via Supabase CLI or Dashboard
-supabase db push
+Run migration in Supabase Dashboard SQL Editor.
+
+### Step 3: Supabase Client
+
+**File: `src/lib/supabase.ts`**
+
+```typescript
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Types
+export interface Project {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  file_tree: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectFile {
+  id: string;
+  project_id: string;
+  path: string;
+  content: string;
+  language?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Message {
+  id: string;
+  project_id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  created_at: string;
+}
 ```
 
 ---
 
-## 🎯 PHASE 2: Core Layout (Day 2)
+## 🎯 DAY 3: Main Layout
 
-### Main App Layout
-
-**File: `src/app/app/[projectId]/page.tsx`**
+**File: `src/App.tsx`**
 
 ```typescript
-'use client';
+import { ChatPanel } from './components/chat/ChatPanel';
+import { LivePreview } from './components/preview/LivePreview';
+import { Sidebar } from './components/sidebar/Sidebar';
 
-import { useState } from 'react';
-import { ChatPanel } from '@/components/chat/chat-panel';
-import { FileTree } from '@/components/files/file-tree';
-import { CodeEditor } from '@/components/editor/code-editor';
-import { LivePreview } from '@/components/preview/live-preview';
-
-export default function ProjectPage({ params }: { params: { projectId: string } }) {
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
-
+export default function App() {
   return (
-    <div className="flex h-screen">
-      {/* Sidebar: Chat */}
-      <div className="w-96 border-r">
-        <ChatPanel projectId={params.projectId} />
-      </div>
+    <div className="flex h-screen bg-gray-50">
+      {/* Sidebar */}
+      <Sidebar />
 
-      {/* Main: File Tree + Editor + Preview */}
-      <div className="flex-1 flex flex-col">
-        {/* File Tree */}
-        <div className="h-48 border-b overflow-auto">
-          <FileTree
-            projectId={params.projectId}
-            selectedFile={selectedFile}
-            onFileSelect={setSelectedFile}
-          />
+      {/* Main Content */}
+      <div className="flex-1 flex">
+        {/* Chat Panel */}
+        <div className="w-1/2 border-r bg-white">
+          <ChatPanel />
         </div>
 
-        {/* Editor & Preview */}
-        <div className="flex-1 flex">
-          <div className="flex-1 border-r">
-            <CodeEditor
-              projectId={params.projectId}
-              filePath={selectedFile}
-            />
-          </div>
-          <div className="flex-1">
-            <LivePreview projectId={params.projectId} />
-          </div>
+        {/* Live Preview */}
+        <div className="w-1/2 bg-white">
+          <LivePreview />
         </div>
       </div>
     </div>
@@ -204,159 +311,79 @@ export default function ProjectPage({ params }: { params: { projectId: string } 
 
 ---
 
-## 🎯 PHASE 3: Chat Component (Day 3)
+## 🎯 DAY 4: Chat Interface
 
-**File: `src/components/chat/chat-panel.tsx`**
+**File: `src/components/chat/ChatPanel.tsx`**
 
 ```typescript
-'use client';
-
-import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { useState, useRef, useEffect } from 'react';
+import { useChatStore } from '@/stores/chat-store';
+import { ChatMessage } from './ChatMessage';
 import { Send } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  created_at: string;
-}
-
-export function ChatPanel({ projectId }: { projectId: string }) {
-  const [messages, setMessages] = useState<Message[]>([]);
+export function ChatPanel() {
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { messages, addMessage, sendMessage, isLoading } = useChatStore();
 
-  const supabase = createClient();
-
-  // Load messages
   useEffect(() => {
-    loadMessages();
+    scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight);
+  }, [messages]);
 
-    // Subscribe to new messages
-    const channel = supabase
-      .channel('messages')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `project_id=eq.${projectId}`
-      }, (payload) => {
-        setMessages(prev => [...prev, payload.new as Message]);
-      })
-      .subscribe();
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
 
-    return () => {
-      supabase.removeChannel(channel);
+    const userMessage = {
+      id: Date.now().toString(),
+      role: 'user' as const,
+      content: input,
+      created_at: new Date().toISOString(),
     };
-  }, [projectId]);
 
-  async function loadMessages() {
-    const { data } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: true });
-
-    if (data) setMessages(data);
-  }
-
-  async function sendMessage() {
-    if (!input.trim() || loading) return;
-
-    const userMessage = input;
+    addMessage(userMessage);
     setInput('');
-    setLoading(true);
-
-    try {
-      // Save user message
-      await supabase.from('messages').insert({
-        project_id: projectId,
-        role: 'user',
-        content: userMessage
-      });
-
-      // Call AI
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          projectId,
-          message: userMessage
-        })
-      });
-
-      const data = await response.json();
-
-      // Save AI response
-      await supabase.from('messages').insert({
-        project_id: projectId,
-        role: 'assistant',
-        content: data.message
-      });
-
-    } catch (error) {
-      console.error('Failed to send message:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
+    await sendMessage(input);
+  };
 
   return (
     <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="p-4 border-b">
+        <h2 className="text-lg font-semibold">Chat</h2>
+        <p className="text-sm text-gray-500">Describe what you want to build</p>
+      </div>
+
       {/* Messages */}
-      <div className="flex-1 overflow-auto p-4 space-y-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[80%] rounded-lg p-3 ${
-                msg.role === 'user'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted'
-              }`}
-            >
-              <ReactMarkdown>{msg.content}</ReactMarkdown>
-            </div>
-          </div>
+          <ChatMessage key={msg.id} message={msg} />
         ))}
-        {loading && (
-          <div className="flex justify-start">
-            <div className="bg-muted rounded-lg p-3">
-              <div className="flex gap-1">
-                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
-                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-100" />
-                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-200" />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Input */}
       <div className="p-4 border-t">
         <div className="flex gap-2">
-          <Textarea
+          <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                sendMessage();
+                handleSend();
               }
             }}
-            placeholder="Describe what you want to build..."
-            className="resize-none"
+            placeholder="Describe your app..."
+            className="flex-1 p-3 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
             rows={3}
+            disabled={isLoading}
           />
-          <Button onClick={sendMessage} disabled={loading}>
-            <Send className="w-4 h-4" />
-          </Button>
+          <button
+            onClick={handleSend}
+            disabled={!input.trim() || isLoading}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Send className="w-5 h-5" />
+          </button>
         </div>
       </div>
     </div>
@@ -364,562 +391,495 @@ export function ChatPanel({ projectId }: { projectId: string }) {
 }
 ```
 
----
-
-## 🎯 PHASE 4: AI Agent (Day 4)
-
-**File: `src/app/api/chat/route.ts`**
+**File: `src/components/chat/ChatMessage.tsx`**
 
 ```typescript
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import OpenAI from 'openai';
+import { Message } from '@/types';
+import ReactMarkdown from 'react-markdown';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+interface Props {
+  message: Message;
+}
 
-const SYSTEM_PROMPT = `You are an expert frontend developer.
-Generate clean, modern code using React, TypeScript, and Tailwind CSS.
+export function ChatMessage({ message }: Props) {
+  const isUser = message.role === 'user';
 
-When user asks to create something:
-1. Generate complete, working code
-2. Use proper TypeScript types
-3. Follow best practices
-4. Use Tailwind CSS for styling
-5. Make it responsive and beautiful
+  return (
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+      <div
+        className={`max-w-[80%] rounded-lg p-3 ${
+          isUser
+            ? 'bg-blue-500 text-white'
+            : 'bg-gray-100 text-gray-900'
+        }`}
+      >
+        {isUser ? (
+          <p className="whitespace-pre-wrap">{message.content}</p>
+        ) : (
+          <div className="prose prose-sm max-w-none">
+            <ReactMarkdown>{message.content}</ReactMarkdown>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+```
 
-Return your response as JSON with this structure:
-{
-  "message": "explanation of what you created",
-  "files": [
-    {
-      "path": "src/App.tsx",
-      "content": "// code here",
-      "language": "typescript"
+**File: `src/stores/chat-store.ts`**
+
+```typescript
+import { create } from 'zustand';
+import { supabase } from '@/lib/supabase';
+import { Message } from '@/types';
+
+interface ChatStore {
+  messages: Message[];
+  projectId: string;
+  isLoading: boolean;
+
+  addMessage: (message: Message) => void;
+  sendMessage: (content: string) => Promise<void>;
+  setProjectId: (id: string) => void;
+}
+
+export const useChatStore = create<ChatStore>((set, get) => ({
+  messages: [],
+  projectId: '',
+  isLoading: false,
+
+  addMessage: (message) =>
+    set((state) => ({ messages: [...state.messages, message] })),
+
+  sendMessage: async (content) => {
+    set({ isLoading: true });
+
+    try {
+      // Call Supabase Edge Function
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: {
+          message: content,
+          projectId: get().projectId,
+        },
+      });
+
+      if (error) throw error;
+
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: data.response,
+        created_at: new Date().toISOString(),
+      };
+
+      get().addMessage(assistantMessage);
+    } catch (error) {
+      console.error('Error sending message:', error);
+    } finally {
+      set({ isLoading: false });
     }
-  ]
-}`;
+  },
 
-export async function POST(request: Request) {
-  const supabase = createClient();
+  setProjectId: (id) => set({ projectId: id }),
+}));
+```
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+---
+
+## 🎯 DAY 5: Supabase Edge Function (AI Chat)
+
+**File: `supabase/functions/chat/index.ts`**
+
+```typescript
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import OpenAI from 'https://esm.sh/openai@4';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
   }
 
-  const { projectId, message } = await request.json();
-
   try {
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! },
+        },
+      }
+    );
+
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { message, projectId } = await req.json();
+
     // Get conversation history
-    const { data: history } = await supabase
+    const { data: messages } = await supabaseClient
       .from('messages')
-      .select('role, content')
+      .select('*')
       .eq('project_id', projectId)
       .order('created_at', { ascending: true })
-      .limit(10);
+      .limit(20);
+
+    // Initialize OpenAI
+    const openai = new OpenAI({
+      apiKey: Deno.env.get('OPENAI_API_KEY'),
+    });
+
+    const SYSTEM_PROMPT = `You are Lovable, an AI assistant that helps users build web applications using React, Vite, and Tailwind CSS.
+
+You can:
+- Generate React components
+- Fix bugs and errors
+- Provide coding guidance
+- Create responsive UI layouts
+
+Always respond in a helpful and concise manner. When generating code, use modern React patterns with TypeScript and Tailwind CSS.`;
+
+    // Build messages
+    const chatMessages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      ...(messages || []).map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      })),
+      { role: 'user', content: message },
+    ];
 
     // Call OpenAI
     const completion = await openai.chat.completions.create({
       model: 'gpt-4-turbo-preview',
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        ...(history || []).map(h => ({
-          role: h.role as 'user' | 'assistant',
-          content: h.content
-        })),
-        { role: 'user', content: message }
-      ],
+      messages: chatMessages as any,
       temperature: 0.7,
-      response_format: { type: 'json_object' }
+      max_tokens: 2000,
     });
 
-    const response = JSON.parse(completion.choices[0].message.content || '{}');
+    const response = completion.choices[0].message.content;
 
-    // Save generated files to database
-    if (response.files && Array.isArray(response.files)) {
-      for (const file of response.files) {
-        await supabase.from('project_files').upsert({
-          project_id: projectId,
-          path: file.path,
-          content: file.content,
-          language: file.language
-        });
-      }
-    }
+    // Save messages to database
+    await supabaseClient.from('messages').insert([
+      { project_id: projectId, role: 'user', content: message },
+      { project_id: projectId, role: 'assistant', content: response },
+    ]);
 
-    return NextResponse.json({
-      message: response.message || 'Files created successfully!'
+    return new Response(JSON.stringify({ response }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
     });
-
-  } catch (error: any) {
-    console.error('AI Error:', error);
-    return NextResponse.json(
-      { error: error.message || 'AI request failed' },
-      { status: 500 }
-    );
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400,
+    });
   }
-}
+});
+```
+
+Deploy Edge Function:
+```bash
+# Install Supabase CLI
+npm install -g supabase
+
+# Login
+supabase login
+
+# Link project
+supabase link --project-ref your-project-ref
+
+# Deploy function
+supabase functions deploy chat
+
+# Set secrets
+supabase secrets set OPENAI_API_KEY=sk-...
 ```
 
 ---
 
-## 🎯 PHASE 5: File Manager (Day 5)
+## 🎯 DAY 6: Live Preview (WebContainer)
 
-**File: `src/components/files/file-tree.tsx`**
+**File: `src/lib/webcontainer.ts`**
 
 ```typescript
-'use client';
+import { WebContainer } from '@webcontainer/api';
 
-import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { File, Folder, ChevronRight, ChevronDown } from 'lucide-react';
+let webcontainerInstance: WebContainer;
 
-interface FileNode {
-  id: string;
-  path: string;
-  language: string;
-  isFolder?: boolean;
-  children?: FileNode[];
+export async function bootWebContainer(): Promise<WebContainer> {
+  if (webcontainerInstance) return webcontainerInstance;
+
+  webcontainerInstance = await WebContainer.boot();
+  return webcontainerInstance;
 }
 
-export function FileTree({
-  projectId,
-  selectedFile,
-  onFileSelect
-}: {
-  projectId: string;
-  selectedFile: string | null;
-  onFileSelect: (path: string) => void;
-}) {
-  const [files, setFiles] = useState<FileNode[]>([]);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set(['src']));
+export async function createViteProject(files: Record<string, string>): Promise<string> {
+  const container = await bootWebContainer();
 
-  const supabase = createClient();
+  // Create Vite project structure
+  const fileTree: any = {
+    'package.json': {
+      file: {
+        contents: JSON.stringify({
+          name: 'preview-app',
+          private: true,
+          version: '0.0.0',
+          type: 'module',
+          scripts: {
+            dev: 'vite',
+            build: 'vite build',
+          },
+          dependencies: {
+            react: '^18.3.0',
+            'react-dom': '^18.3.0',
+          },
+          devDependencies: {
+            '@types/react': '^18.3.0',
+            '@types/react-dom': '^18.3.0',
+            '@vitejs/plugin-react': '^4.3.0',
+            typescript: '^5.5.0',
+            vite: '^5.4.0',
+            tailwindcss: '^3.4.0',
+          },
+        }, null, 2),
+      },
+    },
+    'index.html': {
+      file: {
+        contents: `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Preview</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>`,
+      },
+    },
+    'vite.config.ts': {
+      file: {
+        contents: `import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
 
-  useEffect(() => {
-    loadFiles();
+export default defineConfig({
+  plugins: [react()],
+})`,
+      },
+    },
+    src: { directory: {} },
+  };
 
-    // Subscribe to file changes
-    const channel = supabase
-      .channel('project_files')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'project_files',
-        filter: `project_id=eq.${projectId}`
-      }, () => {
-        loadFiles();
-      })
-      .subscribe();
+  // Add user files
+  for (const [path, content] of Object.entries(files)) {
+    const parts = path.split('/');
+    let current = fileTree;
 
-    return () => {
-      supabase.removeChannel(channel);
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!current[parts[i]]) {
+        current[parts[i]] = { directory: {} };
+      }
+      current = current[parts[i]].directory;
+    }
+
+    current[parts[parts.length - 1]] = {
+      file: { contents: content },
     };
-  }, [projectId]);
-
-  async function loadFiles() {
-    const { data } = await supabase
-      .from('project_files')
-      .select('id, path, language')
-      .eq('project_id', projectId)
-      .order('path');
-
-    if (data) {
-      const tree = buildFileTree(data);
-      setFiles(tree);
-    }
   }
 
-  function buildFileTree(files: any[]): FileNode[] {
-    const root: FileNode[] = [];
+  // Mount files
+  await container.mount(fileTree);
 
-    for (const file of files) {
-      const parts = file.path.split('/');
-      let current = root;
+  // Install & start
+  const installProcess = await container.spawn('npm', ['install']);
+  await installProcess.exit;
 
-      for (let i = 0; i < parts.length; i++) {
-        const part = parts[i];
-        const isLast = i === parts.length - 1;
-        const fullPath = parts.slice(0, i + 1).join('/');
+  const devProcess = await container.spawn('npm', ['run', 'dev']);
 
-        let existing = current.find(n => n.path === fullPath);
-
-        if (!existing) {
-          existing = {
-            id: isLast ? file.id : fullPath,
-            path: fullPath,
-            language: file.language,
-            isFolder: !isLast,
-            children: []
-          };
-          current.push(existing);
-        }
-
-        if (!isLast) {
-          current = existing.children!;
-        }
-      }
-    }
-
-    return root;
-  }
-
-  function toggleExpand(path: string) {
-    setExpanded(prev => {
-      const next = new Set(prev);
-      if (next.has(path)) {
-        next.delete(path);
-      } else {
-        next.add(path);
-      }
-      return next;
+  return new Promise((resolve) => {
+    container.on('server-ready', (port, url) => {
+      resolve(url);
     });
-  }
+  });
+}
+```
 
-  function renderNode(node: FileNode, depth: number = 0) {
-    const isExpanded = expanded.has(node.path);
-    const isSelected = selectedFile === node.path;
+**File: `src/components/preview/LivePreview.tsx`**
 
-    return (
-      <div key={node.path}>
-        <div
-          className={`flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-muted ${
-            isSelected ? 'bg-muted' : ''
-          }`}
-          style={{ paddingLeft: `${depth * 16 + 8}px` }}
-          onClick={() => {
-            if (node.isFolder) {
-              toggleExpand(node.path);
-            } else {
-              onFileSelect(node.path);
-            }
-          }}
+```typescript
+import { useEffect, useState } from 'react';
+import { usePreviewStore } from '@/stores/preview-store';
+import { RefreshCw } from 'lucide-react';
+
+export function LivePreview() {
+  const { url, reload } = usePreviewStore();
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between p-3 border-b">
+        <h2 className="font-semibold">Preview</h2>
+        <button
+          onClick={reload}
+          className="p-2 hover:bg-gray-100 rounded"
         >
-          {node.isFolder ? (
-            <>
-              {isExpanded ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
-              <Folder className="w-4 h-4" />
-            </>
-          ) : (
-            <>
-              <div className="w-4" />
-              <File className="w-4 h-4" />
-            </>
-          )}
-          <span className="text-sm">
-            {node.path.split('/').pop()}
-          </span>
-        </div>
+          <RefreshCw className="w-4 h-4" />
+        </button>
+      </div>
 
-        {node.isFolder && isExpanded && node.children && (
-          <div>
-            {node.children.map(child => renderNode(child, depth + 1))}
+      {/* Preview iframe */}
+      <div className="flex-1 bg-gray-50 flex items-center justify-center">
+        {url ? (
+          <iframe
+            src={url}
+            className="w-full h-full bg-white"
+            sandbox="allow-scripts allow-same-origin"
+            title="Preview"
+          />
+        ) : (
+          <div className="text-center text-gray-500">
+            <p>No preview available</p>
+            <p className="text-sm">Start coding to see your app</p>
           </div>
         )}
       </div>
-    );
-  }
-
-  return (
-    <div className="p-2">
-      <div className="font-semibold mb-2">Files</div>
-      {files.map(node => renderNode(node))}
     </div>
   );
 }
 ```
 
----
-
-## 🎯 PHASE 6: Code Editor (Day 6)
-
-**File: `src/components/editor/code-editor.tsx`**
+**File: `src/stores/preview-store.ts`**
 
 ```typescript
-'use client';
+import { create } from 'zustand';
 
-import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { Textarea } from '@/components/ui/textarea';
+interface PreviewStore {
+  url: string;
+  setUrl: (url: string) => void;
+  reload: () => void;
+}
 
-export function CodeEditor({
-  projectId,
-  filePath
-}: {
-  projectId: string;
-  filePath: string | null;
-}) {
-  const [content, setContent] = useState('');
-  const [language, setLanguage] = useState('');
-  const [saving, setSaving] = useState(false);
+export const usePreviewStore = create<PreviewStore>((set, get) => ({
+  url: '',
+  setUrl: (url) => set({ url }),
+  reload: () => {
+    const currentUrl = get().url;
+    set({ url: '' });
+    setTimeout(() => set({ url: currentUrl }), 100);
+  },
+}));
+```
 
-  const supabase = createClient();
+---
 
-  useEffect(() => {
-    if (filePath) {
-      loadFile();
-    }
-  }, [filePath, projectId]);
+## 🎯 DAY 7: Sidebar & File Management
 
-  async function loadFile() {
-    if (!filePath) return;
+**File: `src/components/sidebar/Sidebar.tsx`**
 
-    const { data } = await supabase
-      .from('project_files')
-      .select('content, language')
-      .eq('project_id', projectId)
-      .eq('path', filePath)
-      .single();
+```typescript
+import { SectionsPanel } from './SectionsPanel';
+import { FilesPanel } from './FilesPanel';
+import { LayoutGrid, Folder } from 'lucide-react';
+import { useState } from 'react';
 
-    if (data) {
-      setContent(data.content);
-      setLanguage(data.language);
-    }
-  }
-
-  async function saveFile() {
-    if (!filePath) return;
-
-    setSaving(true);
-    try {
-      await supabase.from('project_files').upsert({
-        project_id: projectId,
-        path: filePath,
-        content,
-        language
-      });
-    } catch (error) {
-      console.error('Failed to save:', error);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  // Auto-save after 1 second of no typing
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (content && filePath) {
-        saveFile();
-      }
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [content]);
-
-  if (!filePath) {
-    return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
-        Select a file to edit
-      </div>
-    );
-  }
+export function Sidebar() {
+  const [tab, setTab] = useState<'sections' | 'files'>('sections');
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-2 border-b">
-        <div className="text-sm font-medium">{filePath}</div>
-        <div className="text-xs text-muted-foreground">
-          {saving ? 'Saving...' : 'Saved'}
-        </div>
+    <aside className="w-80 border-r bg-white flex flex-col">
+      {/* Tabs */}
+      <div className="flex border-b">
+        <button
+          onClick={() => setTab('sections')}
+          className={`flex-1 p-3 flex items-center justify-center gap-2 ${
+            tab === 'sections' ? 'bg-blue-50 text-blue-600' : 'text-gray-600'
+          }`}
+        >
+          <LayoutGrid className="w-4 h-4" />
+          <span>Sections</span>
+        </button>
+        <button
+          onClick={() => setTab('files')}
+          className={`flex-1 p-3 flex items-center justify-center gap-2 ${
+            tab === 'files' ? 'bg-blue-50 text-blue-600' : 'text-gray-600'
+          }`}
+        >
+          <Folder className="w-4 h-4" />
+          <span>Files</span>
+        </button>
       </div>
 
-      <Textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        className="flex-1 font-mono text-sm resize-none rounded-none border-0 focus-visible:ring-0"
-        placeholder="// Start coding..."
-      />
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
+        {tab === 'sections' ? <SectionsPanel /> : <FilesPanel />}
+      </div>
+    </aside>
+  );
+}
+```
+
+**File: `src/components/sidebar/SectionsPanel.tsx`**
+
+```typescript
+import { useChatStore } from '@/stores/chat-store';
+
+const sections = [
+  { id: 'hero', name: 'Hero Section', prompt: 'Add a hero section with headline and CTA' },
+  { id: 'features', name: 'Features Grid', prompt: 'Add a 3-column features section' },
+  { id: 'pricing', name: 'Pricing Table', prompt: 'Add pricing cards with 3 tiers' },
+  { id: 'cta', name: 'Call to Action', prompt: 'Add a CTA section with button' },
+];
+
+export function SectionsPanel() {
+  const { sendMessage } = useChatStore();
+
+  return (
+    <div className="p-4 space-y-3">
+      <h3 className="font-semibold mb-2">Add Section</h3>
+      {sections.map((section) => (
+        <button
+          key={section.id}
+          onClick={() => sendMessage(section.prompt)}
+          className="w-full p-4 border rounded-lg hover:border-blue-500 hover:bg-blue-50 text-left transition"
+        >
+          <p className="font-medium">{section.name}</p>
+          <p className="text-sm text-gray-500">Click to add</p>
+        </button>
+      ))}
     </div>
   );
 }
 ```
 
----
-
-## 🎯 PHASE 7: Live Preview (Day 7)
-
-**File: `src/components/preview/live-preview.tsx`**
+**File: `src/components/sidebar/FilesPanel.tsx`**
 
 ```typescript
-'use client';
+import { useProjectStore } from '@/stores/project-store';
+import { File, Folder } from 'lucide-react';
 
-import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-
-export function LivePreview({ projectId }: { projectId: string }) {
-  const [html, setHtml] = useState('');
-  const supabase = createClient();
-
-  useEffect(() => {
-    loadPreview();
-
-    // Subscribe to file changes
-    const channel = supabase
-      .channel('preview')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'project_files',
-        filter: `project_id=eq.${projectId}`
-      }, () => {
-        loadPreview();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [projectId]);
-
-  async function loadPreview() {
-    const { data: files } = await supabase
-      .from('project_files')
-      .select('path, content, language')
-      .eq('project_id', projectId);
-
-    if (!files) return;
-
-    // Build HTML with all files
-    const htmlFile = files.find(f => f.path.endsWith('.html'));
-    const cssFiles = files.filter(f => f.path.endsWith('.css'));
-    const jsFiles = files.filter(f => f.path.endsWith('.js') || f.path.endsWith('.jsx'));
-
-    let previewHtml = htmlFile?.content || '<div id="root"></div>';
-
-    // Inject CSS
-    const cssContent = cssFiles.map(f => f.content).join('\n');
-    if (cssContent) {
-      previewHtml = previewHtml.replace(
-        '</head>',
-        `<style>${cssContent}</style></head>`
-      );
-    }
-
-    // Inject JS
-    const jsContent = jsFiles.map(f => f.content).join('\n');
-    if (jsContent) {
-      previewHtml = previewHtml.replace(
-        '</body>',
-        `<script type="module">${jsContent}</script></body>`
-      );
-    }
-
-    // Add Tailwind CSS CDN
-    if (!previewHtml.includes('tailwindcss')) {
-      previewHtml = previewHtml.replace(
-        '</head>',
-        '<script src="https://cdn.tailwindcss.com"></script></head>'
-      );
-    }
-
-    setHtml(previewHtml);
-  }
+export function FilesPanel() {
+  const { files } = useProjectStore();
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="px-4 py-2 border-b">
-        <div className="text-sm font-medium">Preview</div>
-      </div>
-
-      <iframe
-        srcDoc={html}
-        className="flex-1 w-full border-0"
-        sandbox="allow-scripts"
-        title="Preview"
-      />
-    </div>
-  );
-}
-```
-
----
-
-## 🎯 PHASE 8: Project Management (Day 8)
-
-**File: `src/app/dashboard/page.tsx`**
-
-```typescript
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Plus, Folder } from 'lucide-react';
-
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  created_at: string;
-}
-
-export default function Dashboard() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const router = useRouter();
-  const supabase = createClient();
-
-  useEffect(() => {
-    loadProjects();
-  }, []);
-
-  async function loadProjects() {
-    const { data } = await supabase
-      .from('projects')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (data) setProjects(data);
-  }
-
-  async function createProject() {
-    const name = prompt('Project name:');
-    if (!name) return;
-
-    const { data } = await supabase
-      .from('projects')
-      .insert({
-        name,
-        description: 'New project'
-      })
-      .select()
-      .single();
-
-    if (data) {
-      router.push(`/app/${data.id}`);
-    }
-  }
-
-  return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">My Projects</h1>
-        <Button onClick={createProject}>
-          <Plus className="w-4 h-4 mr-2" />
-          New Project
-        </Button>
-      </div>
-
-      <div className="grid md:grid-cols-3 gap-4">
-        {projects.map((project) => (
+    <div className="p-4">
+      <h3 className="font-semibold mb-3">Project Files</h3>
+      <div className="space-y-1">
+        {files.map((file) => (
           <div
-            key={project.id}
-            onClick={() => router.push(`/app/${project.id}`)}
-            className="p-6 border rounded-lg cursor-pointer hover:border-primary transition"
+            key={file.path}
+            className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded cursor-pointer"
           >
-            <div className="flex items-center gap-3 mb-2">
-              <Folder className="w-6 h-6" />
-              <h3 className="font-semibold">{project.name}</h3>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {new Date(project.created_at).toLocaleDateString()}
-            </p>
+            <File className="w-4 h-4 text-blue-500" />
+            <span className="text-sm">{file.path}</span>
           </div>
         ))}
       </div>
@@ -930,112 +890,171 @@ export default function Dashboard() {
 
 ---
 
-## 🎯 Testing & Launch
+## 🎯 DAY 8: Run & Test
 
-### Test Checklist
+### Step 1: Update Vite Config
 
-```bash
-# 1. Test authentication
-- [ ] Sign up works
-- [ ] Login works
-- [ ] Logout works
+**File: `vite.config.ts`**
 
-# 2. Test project management
-- [ ] Can create project
-- [ ] Can view projects list
-- [ ] Can open project
+```typescript
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
 
-# 3. Test chat
-- [ ] Can send message
-- [ ] AI responds
-- [ ] Files are created
-
-# 4. Test file management
-- [ ] Files appear in tree
-- [ ] Can click to open file
-- [ ] File content loads
-
-# 5. Test editor
-- [ ] Can edit code
-- [ ] Auto-save works
-- [ ] Changes persist
-
-# 6. Test preview
-- [ ] Preview shows content
-- [ ] Updates on file change
-- [ ] CSS/JS works
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+  server: {
+    port: 3000,
+    headers: {
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Opener-Policy': 'same-origin',
+    },
+  },
+});
 ```
 
-### Run Development Server
+### Step 2: Types
+
+**File: `src/types/index.ts`**
+
+```typescript
+export interface Message {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  created_at: string;
+}
+
+export interface Project {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  file_tree: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectFile {
+  id: string;
+  project_id: string;
+  path: string;
+  content: string;
+  language?: string;
+}
+```
+
+### Step 3: Project Store
+
+**File: `src/stores/project-store.ts`**
+
+```typescript
+import { create } from 'zustand';
+import { ProjectFile } from '@/types';
+
+interface ProjectStore {
+  files: ProjectFile[];
+  addFile: (file: ProjectFile) => void;
+  updateFile: (path: string, content: string) => void;
+}
+
+export const useProjectStore = create<ProjectStore>((set) => ({
+  files: [],
+  addFile: (file) => set((state) => ({ files: [...state.files, file] })),
+  updateFile: (path, content) =>
+    set((state) => ({
+      files: state.files.map((f) =>
+        f.path === path ? { ...f, content } : f
+      ),
+    })),
+}));
+```
+
+### Step 4: Run Application
 
 ```bash
+# Start development server
 npm run dev
+
+# Open http://localhost:3000
 ```
 
-Visit: `http://localhost:3000`
+### Step 5: Test Flow
+
+1. **Chat**: Type "Create a landing page with hero section"
+2. **AI Response**: Should get code suggestions
+3. **Preview**: Should see live preview (once WebContainer is integrated)
+4. **Files**: Check files panel for generated code
 
 ---
 
-## 🚀 DONE!
+## 🎯 Next Steps
 
-Bây giờ bạn có một **working Lovable Clone** với:
+### Week 2: Advanced Features
+- Code editor with Monaco
+- File tree with drag & drop
+- Real-time collaboration
+- GitHub integration
 
-✅ Chat interface để talk với AI
-✅ AI agent generate code
-✅ File tree hiển thị files
-✅ Code editor để edit
-✅ Live preview realtime
-✅ Project management
-
-**Total time: ~8 days**
-**Lines of code: ~800**
-**Dependencies: minimal**
-
-### Next Steps (Optional)
-
-1. Add Monaco Editor cho syntax highlighting
-2. Add WebContainer để run Node.js
-3. Add export to ZIP
-4. Add GitHub integration
-5. Add team collaboration
-
-Nhưng bây giờ bạn đã có **core MVP working**! 🎉
+### Week 3: Production
+- User authentication
+- Project saving/loading
+- Deployment to Vercel
+- Custom domains
 
 ---
 
-## 📦 Full File Structure
+## 📝 Troubleshooting
 
-```
-lovable-clone/
-├── src/
-│   ├── app/
-│   │   ├── dashboard/
-│   │   │   └── page.tsx          # Projects list
-│   │   ├── app/
-│   │   │   └── [projectId]/
-│   │   │       └── page.tsx      # Main editor
-│   │   └── api/
-│   │       └── chat/
-│   │           └── route.ts      # AI endpoint
-│   ├── components/
-│   │   ├── chat/
-│   │   │   └── chat-panel.tsx
-│   │   ├── files/
-│   │   │   └── file-tree.tsx
-│   │   ├── editor/
-│   │   │   └── code-editor.tsx
-│   │   └── preview/
-│   │       └── live-preview.tsx
-│   └── lib/
-│       └── supabase/
-│           ├── client.ts
-│           └── server.ts
-├── supabase/
-│   └── migrations/
-│       └── 20240101000000_init.sql
-├── .env.local
-├── package.json
-└── tailwind.config.ts
+### Issue 1: WebContainer not loading
+```typescript
+// Add COOP/COEP headers in vite.config.ts
+server: {
+  headers: {
+    'Cross-Origin-Embedder-Policy': 'require-corp',
+    'Cross-Origin-Opener-Policy': 'same-origin',
+  },
+}
 ```
 
-**That's it! Simple, clear, working.** 🚀
+### Issue 2: Supabase Edge Function errors
+```bash
+# Check logs
+supabase functions logs chat
+
+# Test locally
+supabase functions serve chat
+```
+
+### Issue 3: CORS errors
+```typescript
+// In Edge Function, ensure CORS headers are set
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+```
+
+---
+
+## ✅ MVP Checklist
+
+- [ ] Vite project created
+- [ ] Supabase setup complete
+- [ ] Database schema deployed
+- [ ] Chat interface working
+- [ ] Edge Function deployed
+- [ ] WebContainer integrated
+- [ ] Live preview working
+- [ ] Sidebar sections clickable
+- [ ] Files panel shows generated code
+- [ ] App deployed to Vercel
+
+---
+
+**Bây giờ bạn có working Lovable Clone với ĐÚNG tech stack! 🚀**

@@ -32,24 +32,26 @@ cd lovable-clone
 
 # Structure
 lovable-clone/
-├── apps/
-│   ├── web/          # Next.js frontend
-│   └── api/          # Backend API
-├── packages/
-│   ├── ui/           # Shared UI components
-│   ├── agent/        # AI agent logic
-│   ├── database/     # Prisma schema
-│   └── config/       # Shared configs
-└── turbo.json
+├── src/
+│   ├── components/   # React components
+│   ├── lib/          # Utilities & Supabase client
+│   ├── stores/       # Zustand stores
+│   └── types/        # TypeScript types
+├── supabase/
+│   ├── functions/    # Edge Functions
+│   └── migrations/   # Database schemas
+├── public/
+├── index.html
+├── vite.config.ts
+└── package.json
 ```
 
 ### **Bước 2: Initialize Frontend**
 
 ```bash
-cd apps/web
-
-# Create Next.js app
-npx create-next-app@latest . --typescript --tailwind --app
+# Create Vite + React app
+npm create vite@latest lovable-clone -- --template react-ts
+cd lovable-clone
 
 # Install dependencies
 npm install @radix-ui/react-dialog @radix-ui/react-tabs
@@ -57,25 +59,22 @@ npm install class-variance-authority clsx tailwind-merge
 npm install lucide-react
 npm install zustand
 npm install react-markdown
-npm install @uiw/react-textarea-code-editor
+npm install @supabase/supabase-js
 
 # Install shadcn/ui
 npx shadcn-ui@latest init
 npx shadcn-ui@latest add button dialog input textarea tabs scroll-area
 ```
 
-**File: `apps/web/app/page.tsx`**
+**File: `src/App.tsx`**
 ```typescript
-'use client';
-
-import { useState } from 'react';
 import { ChatPanel } from '@/components/chat-panel';
 import { LivePreview } from '@/components/live-preview';
 import { Sidebar } from '@/components/sidebar';
 
-export default function Home() {
+export default function App() {
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen bg-background">
       {/* Sidebar */}
       <Sidebar />
 
@@ -96,43 +95,75 @@ export default function Home() {
 }
 ```
 
-### **Bước 3: Setup Backend API**
+### **Bước 3: Setup Supabase Backend**
 
 ```bash
-cd apps/api
+# Install Supabase CLI
+npm install -g supabase
 
-# Initialize
-npm init -y
-npm install express cors dotenv
-npm install -D typescript @types/node @types/express tsx
+# Initialize Supabase in project
+supabase init
 
-# AI dependencies
-npm install openai @anthropic-ai/sdk
-npm install langchain @langchain/openai
+# Link to Supabase project (or create new)
+supabase login
+supabase link --project-ref your-project-ref
 
-# Initialize TypeScript
-npx tsc --init
+# Setup database migrations
+supabase db push
+
+# Create Edge Functions
+supabase functions new chat
+supabase functions new codegen
 ```
 
-**File: `apps/api/src/index.ts`**
+**File: `supabase/functions/chat/index.ts`**
 ```typescript
-import express from 'express';
-import cors from 'cors';
-import { chatRouter } from './routes/chat';
-import { codegenRouter } from './routes/codegen';
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import OpenAI from 'https://esm.sh/openai@4';
 
-const app = express();
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
-app.use(cors());
-app.use(express.json());
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
 
-// Routes
-app.use('/api/chat', chatRouter);
-app.use('/api/codegen', codegenRouter);
+  try {
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! },
+        },
+      }
+    );
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`API server running on port ${PORT}`);
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { message, projectId } = await req.json();
+
+    // AI logic here...
+    const openai = new OpenAI({
+      apiKey: Deno.env.get('OPENAI_API_KEY'),
+    });
+
+    // ... rest of chat logic
+
+    return new Response(JSON.stringify({ response: 'AI response' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400,
+    });
+  }
 });
 ```
 
@@ -170,14 +201,13 @@ npx prisma generate
 
 ### **Bước 5: Implement Basic Chat**
 
-**File: `apps/web/components/chat-panel.tsx`**
+**File: `src/components/chat-panel.tsx`**
 ```typescript
-'use client';
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { supabase } from '@/lib/supabase';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -198,14 +228,13 @@ export function ChatPanel() {
     setIsLoading(true);
 
     try {
-      // Call API
-      const response = await fetch('http://localhost:3001/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input, history: messages })
+      // Call Supabase Edge Function
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: { message: input, history: messages }
       });
 
-      const data = await response.json();
+      if (error) throw error;
+
       const assistantMessage: Message = {
         role: 'assistant',
         content: data.response
@@ -271,141 +300,108 @@ export function ChatPanel() {
 }
 ```
 
-### **Bước 6: Implement AI Chat Handler**
+### **Bước 6: Setup Supabase Client**
 
-**File: `apps/api/src/routes/chat.ts`**
+**File: `src/lib/supabase.ts`**
 ```typescript
-import { Router } from 'express';
-import OpenAI from 'openai';
+import { createClient } from '@supabase/supabase-js';
 
-const router = Router();
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-router.post('/', async (req, res) => {
-  try {
-    const { message, history } = req.body;
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Build messages for OpenAI
-    const messages = [
-      {
-        role: 'system',
-        content: `You are Lovable, an AI assistant that helps users build web applications.
-You can generate React components, fix bugs, and provide coding guidance.
-Always respond in a helpful and concise manner.`
-      },
-      ...history.map((msg: any) => ({
-        role: msg.role,
-        content: msg.content
-      })),
-      {
-        role: 'user',
-        content: message
-      }
-    ];
+// Type definitions
+export interface Project {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  file_tree: Record<string, any>;
+  design_system: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
 
-    // Call OpenAI
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
-      messages: messages as any,
-      temperature: 0.7,
-      max_tokens: 2000
-    });
-
-    const response = completion.choices[0].message.content;
-
-    res.json({ response });
-  } catch (error) {
-    console.error('Chat error:', error);
-    res.status(500).json({ error: 'Failed to process message' });
-  }
-});
-
-export { router as chatRouter };
+export interface Message {
+  id: string;
+  project_id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  created_at: string;
+}
 ```
 
-### **Bước 7: Implement Code Generation**
+### **Bước 7: Deploy Edge Function for Code Generation**
 
-**File: `apps/api/src/routes/codegen.ts`**
+**File: `supabase/functions/codegen/index.ts`**
 ```typescript
-import { Router } from 'express';
-import OpenAI from 'openai';
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import OpenAI from 'https://esm.sh/openai@4';
 
-const router = Router();
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
-// Load Lovable system prompt
-import { readFileSync } from 'fs';
-import { join } from 'path';
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
 
-const LOVABLE_PROMPT = readFileSync(
-  join(__dirname, '../../../prompts/lovable-agent.txt'),
-  'utf-8'
-);
-
-router.post('/generate', async (req, res) => {
   try {
-    const { requirement, context } = req.body;
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! },
+        },
+      }
+    );
+
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { requirement, projectId } = await req.json();
+
+    const openai = new OpenAI({
+      apiKey: Deno.env.get('OPENAI_API_KEY'),
+    });
+
+    // Load Lovable system prompt
+    const LOVABLE_PROMPT = await Deno.readTextFile('./prompts/lovable-system.txt');
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4-turbo-preview',
       messages: [
-        {
-          role: 'system',
-          content: LOVABLE_PROMPT
-        },
-        {
-          role: 'user',
-          content: `Generate a React component for: ${requirement}
-
-Context: ${JSON.stringify(context, null, 2)}`
-        }
+        { role: 'system', content: LOVABLE_PROMPT },
+        { role: 'user', content: `Generate a React component for: ${requirement}` }
       ],
-      temperature: 0.2, // Lower for more consistent code
+      temperature: 0.2,
       max_tokens: 4000
     });
 
     const code = completion.choices[0].message.content;
 
-    // Parse and validate code
-    const parsed = parseGeneratedCode(code);
+    // Extract code from markdown
+    const codeMatch = code?.match(/```(?:typescript|tsx)?\n([\s\S]*?)```/);
+    const extractedCode = codeMatch ? codeMatch[1] : code;
 
-    res.json({
-      code: parsed.code,
-      filePath: parsed.filePath,
-      imports: parsed.imports
-    });
+    return new Response(
+      JSON.stringify({ code: extractedCode, success: true }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   } catch (error) {
-    console.error('Codegen error:', error);
-    res.status(500).json({ error: 'Failed to generate code' });
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400,
+    });
   }
 });
-
-function parseGeneratedCode(response: string) {
-  // Extract code blocks from markdown
-  const codeBlockRegex = /```(?:typescript|tsx|jsx)?\n([\s\S]*?)```/g;
-  const matches = [...response.matchAll(codeBlockRegex)];
-
-  if (matches.length === 0) {
-    return { code: response, filePath: 'src/components/Generated.tsx', imports: [] };
-  }
-
-  const code = matches[0][1];
-
-  // Extract file path if specified
-  const filePathMatch = response.match(/File: `(.+?)`/);
-  const filePath = filePathMatch ? filePathMatch[1] : 'src/components/Generated.tsx';
-
-  // Extract imports
-  const imports = code.match(/^import .+ from .+$/gm) || [];
-
-  return { code, filePath, imports };
-}
-
-export { router as codegenRouter };
 ```
 
 ### **Bước 8: Copy Lovable Prompt**
@@ -420,52 +416,40 @@ cp Lovable/Agent\ Prompt.txt apps/api/src/prompts/lovable-agent.txt
 
 ### **Bước 9: Setup Environment Variables**
 
-**File: `apps/api/.env`**
-```env
-# OpenAI
-OPENAI_API_KEY=sk-...
-
-# Or Anthropic
-ANTHROPIC_API_KEY=sk-ant-...
-
-# Database
-DATABASE_URL=postgresql://user:pass@localhost:5432/lovable
-# Or Supabase
-SUPABASE_URL=https://xxxxx.supabase.co
-SUPABASE_ANON_KEY=eyJxxx...
-
-# Server
-PORT=3001
-NODE_ENV=development
+**File: `.env`** (For Edge Functions - set via Supabase CLI)
+```bash
+# Deploy secrets to Supabase
+supabase secrets set OPENAI_API_KEY=sk-...
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-**File: `apps/web/.env.local`**
+**File: `.env.local`** (For Frontend)
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:3001
+VITE_SUPABASE_URL=https://xxxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJxxx...
 ```
 
 ### **Bước 10: Run the App**
 
 ```bash
-# Terminal 1: Run API
-cd apps/api
+# Terminal 1: Start Supabase locally (optional)
+supabase start
+
+# Terminal 2: Run Edge Functions locally (optional)
+supabase functions serve
+
+# Terminal 3: Run Vite dev server
 npm run dev
 
-# Terminal 2: Run Web
-cd apps/web
-npm run dev
-
-# Open http://localhost:3000
+# Open http://localhost:5173
 ```
 
 ---
 
 ## 🎨 **Bước 11: Implement Live Preview (Basic)**
 
-**File: `apps/web/components/live-preview.tsx`**
+**File: `src/components/live-preview.tsx`**
 ```typescript
-'use client';
-
 import { useEffect, useState } from 'react';
 
 export function LivePreview() {
@@ -474,7 +458,7 @@ export function LivePreview() {
   useEffect(() => {
     // In production, this would be WebContainer URL
     // For MVP, use static preview
-    setUrl('http://localhost:3002');
+    setUrl('http://localhost:5173');
   }, []);
 
   return (
@@ -516,9 +500,8 @@ export function LivePreview() {
 
 ## 🔧 **Bước 12: Implement Sidebar (Basic)**
 
-**File: `apps/web/components/sidebar.tsx`**
+**File: `src/components/sidebar.tsx`**
 ```typescript
-'use client';
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { LayoutGrid, Package, Palette, Folder } from 'lucide-react';
@@ -589,7 +572,7 @@ export function Sidebar() {
 npm install @webcontainer/api
 ```
 
-**File: `apps/web/lib/webcontainer.ts`**
+**File: `src/lib/webcontainer.ts`**
 ```typescript
 import { WebContainer } from '@webcontainer/api';
 
@@ -723,7 +706,8 @@ const completion = await retry(() =>
 - **Lovable Tools**: `/Lovable/Agent Tools.json`
 - **WebContainer Docs**: https://webcontainers.io/guides/quickstart
 - **shadcn/ui**: https://ui.shadcn.com
-- **Next.js**: https://nextjs.org/docs
+- **Vite**: https://vitejs.dev/guide/
+- **Supabase**: https://supabase.com/docs
 
 ---
 

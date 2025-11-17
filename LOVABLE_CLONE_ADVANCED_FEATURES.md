@@ -319,11 +319,11 @@ echo "✅ Deployment complete!"
 
 ## 1. Stripe Webhooks
 
-**File: `src/app/api/webhooks/stripe/route.ts`**
+**File: `supabase/functions/webhook-stripe/index.ts`**
 
 ```typescript
-import { headers } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { headers } ;
+import { Response } ;
 import { createAdminClient } from '@/lib/supabase/server';
 import Stripe from 'stripe';
 
@@ -333,9 +333,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
-export async function POST(req: Request) {
+serve(async (req) =>(req: Request) {
   const body = await req.text();
-  const signature = (await headers()).get('stripe-signature')!;
+  const signature = (req.headers).get('stripe-signature')!;
 
   let event: Stripe.Event;
 
@@ -343,7 +343,7 @@ export async function POST(req: Request) {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err) {
     console.error('Webhook signature verification failed:', err);
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
+    return Response.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
   const supabase = createAdminClient();
@@ -417,10 +417,10 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({ received: true });
+    return Response.json({ received: true });
   } catch (error) {
     console.error('Webhook handler error:', error);
-    return NextResponse.json(
+    return Response.json(
       { error: 'Webhook handler failed' },
       { status: 500 }
     );
@@ -430,14 +430,14 @@ export async function POST(req: Request) {
 
 ## 2. GitHub Webhooks
 
-**File: `src/app/api/webhooks/github/route.ts`**
+**File: `supabase/functions/webhook-github/index.ts`**
 
 ```typescript
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, Response } ;
 import { createAdminClient } from '@/lib/supabase/server';
 import crypto from 'crypto';
 
-export async function POST(req: NextRequest) {
+serve(async (req) =>(req: NextRequest) {
   const supabase = createAdminClient();
 
   // Verify signature
@@ -448,7 +448,7 @@ export async function POST(req: NextRequest) {
   const digest = 'sha256=' + hmac.update(body).digest('hex');
 
   if (signature !== digest) {
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    return Response.json({ error: 'Invalid signature' }, { status: 401 });
   }
 
   const payload = JSON.parse(body);
@@ -495,10 +495,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ received: true });
+    return Response.json({ received: true });
   } catch (error) {
     console.error('GitHub webhook error:', error);
-    return NextResponse.json(
+    return Response.json(
       { error: 'Webhook handler failed' },
       { status: 500 }
     );
@@ -508,13 +508,13 @@ export async function POST(req: NextRequest) {
 
 ## 3. Vercel Deploy Webhook
 
-**File: `src/app/api/webhooks/vercel/route.ts`**
+**File: `supabase/functions/webhook-vercel/index.ts`**
 
 ```typescript
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, Response } ;
 import { createAdminClient } from '@/lib/supabase/server';
 
-export async function POST(req: NextRequest) {
+serve(async (req) =>(req: NextRequest) {
   const supabase = createAdminClient();
   const payload = await req.json();
 
@@ -529,7 +529,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (!existingDeployment) {
-      return NextResponse.json({ received: true });
+      return Response.json({ received: true });
     }
 
     let status = 'pending';
@@ -564,10 +564,10 @@ export async function POST(req: NextRequest) {
       .update({ updated_at: new Date().toISOString() })
       .eq('id', existingDeployment.id);
 
-    return NextResponse.json({ received: true });
+    return Response.json({ received: true });
   } catch (error) {
     console.error('Vercel webhook error:', error);
-    return NextResponse.json(
+    return Response.json(
       { error: 'Webhook handler failed' },
       { status: 500 }
     );
@@ -647,8 +647,8 @@ vi.mock('@/lib/supabase/client', () => ({
   })
 }));
 
-// Mock Next.js router
-vi.mock('next/navigation', () => ({
+// Mock router
+// Use react-router-dom mocks instead, () => ({
   useRouter: () => ({
     push: vi.fn(),
     replace: vi.fn(),

@@ -1,6 +1,6 @@
 # 🎨 Lovable Clone - Frontend Templates
 
-> Complete React/Next.js component templates
+> Complete React + Vite component templates
 
 ---
 
@@ -8,10 +8,10 @@
 
 ## 1. Main Chat Panel
 
-**File: `apps/web/components/chat/chat-panel.tsx`**
+**File: `src/components/chat/chat-panel.tsx`**
 
 ```typescript
-'use client';
+
 
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -56,7 +56,7 @@ export function ChatPanel() {
     try {
       // Use EventSource for streaming
       const eventSource = new EventSource(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/chat/stream`,
+        `${import.meta.env.VITE_API_URL}/api/chat/stream`,
         {
           method: 'POST',
           headers: {
@@ -193,10 +193,10 @@ export function ChatPanel() {
 
 ## 2. Chat Message Component
 
-**File: `apps/web/components/chat/chat-message.tsx`**
+**File: `src/components/chat/chat-message.tsx`**
 
 ```typescript
-'use client';
+
 
 import { Message } from '@/types';
 import { cn } from '@/lib/utils';
@@ -345,10 +345,10 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
 
 ## 1. Live Preview Panel
 
-**File: `apps/web/components/preview/live-preview.tsx`**
+**File: `src/components/preview/live-preview.tsx`**
 
 ```typescript
-'use client';
+
 
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
@@ -554,10 +554,10 @@ export function LivePreview() {
 
 ## 2. Console Panel
 
-**File: `apps/web/components/preview/console-panel.tsx`**
+**File: `src/components/preview/console-panel.tsx`**
 
 ```typescript
-'use client';
+
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -650,10 +650,10 @@ export function ConsolePanel({ logs }: ConsolePanelProps) {
 
 ## 1. Main Sidebar
 
-**File: `apps/web/components/sidebar/sidebar.tsx`**
+**File: `src/components/sidebar/sidebar.tsx`**
 
 ```typescript
-'use client';
+
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LayoutGrid, Palette, Folder, Settings } from 'lucide-react';
@@ -702,16 +702,16 @@ export function Sidebar() {
 
 ## 2. Sections Panel
 
-**File: `apps/web/components/sidebar/sections-panel.tsx`**
+**File: `src/components/sidebar/sections-panel.tsx`**
 
 ```typescript
-'use client';
+
 
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus } from 'lucide-react';
 import { useChatStore } from '@/stores/chat-store';
-import Image from 'next/image';
+// Use regular <img> tag in Vite;
 
 const sections = [
   {
@@ -836,10 +836,10 @@ export function SectionsPanel() {
 
 ## 3. Theme Customizer
 
-**File: `apps/web/components/sidebar/theme-panel.tsx`**
+**File: `src/components/sidebar/theme-panel.tsx`**
 
 ```typescript
-'use client';
+
 
 import { useState } from 'react';
 import { Label } from '@/components/ui/label';

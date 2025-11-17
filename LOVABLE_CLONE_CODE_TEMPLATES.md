@@ -8,15 +8,18 @@
 
 ```
 lovable-clone/
-├── apps/
-│   ├── web/                    # Next.js Frontend
-│   └── api/                    # Backend API
-├── packages/
-│   ├── agent/                  # AI Agent Logic
-│   ├── database/               # Database Schema
-│   ├── ui/                     # Shared UI Components
-│   └── config/                 # Shared Configs
-└── templates/                  # Project Templates
+├── src/
+│   ├── components/             # React Components
+│   ├── lib/                    # Utilities & Supabase client
+│   ├── stores/                 # Zustand stores
+│   └── types/                  # TypeScript types
+├── supabase/
+│   ├── functions/              # Edge Functions
+│   └── migrations/             # Database schemas
+├── public/
+├── index.html
+├── vite.config.ts
+└── package.json
 ```
 
 ---
@@ -859,7 +862,7 @@ export class ErrorDetector {
     // Parse build output for errors
     const errors: CodeError[] = [];
 
-    // Next.js error pattern
+    // Error pattern
     const nextErrorRegex = /Error: (.+)\n\s+at (.+):(\d+):(\d+)/g;
     let match;
 
@@ -1023,7 +1026,7 @@ export interface FixResult {
 
 ## 1. Main API Server
 
-**File: `apps/api/src/index.ts`**
+**File: `supabase/functions/src/index.ts`**
 
 ```typescript
 import express from 'express';
@@ -1052,7 +1055,7 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
     credentials: true
   }
 });
@@ -1060,7 +1063,7 @@ const io = new Server(httpServer, {
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true
 }));
 app.use(morgan('combined'));
@@ -1125,20 +1128,24 @@ export { io };
 
 ---
 
-## 2. Chat API Route
+## 2. Chat Edge Function
 
-**File: `apps/api/src/routes/chat.ts`**
+**File: `supabase/functions/chat/index.ts`**
 
 ```typescript
-import { Router } from 'express';
-import { LovableAgent } from '@lovable/agent';
-import { allTools } from '@lovable/agent/tools';
-import { db } from '../lib/db';
-import { io } from '../index';
-import fs from 'fs/promises';
-import path from 'path';
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import OpenAI from 'https://esm.sh/openai@4';
 
-const router = Router();
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
 
 // Load system prompt
 const SYSTEM_PROMPT = await fs.readFile(
@@ -1315,7 +1322,7 @@ export { router as chatRouter };
 
 ## 3. Code Generation Route
 
-**File: `apps/api/src/routes/codegen.ts`**
+**File: `supabase/functions/src/routes/codegen.ts`**
 
 ```typescript
 import { Router } from 'express';
@@ -1410,7 +1417,7 @@ export { router as codegenRouter };
 
 ## 4. Project Management Route
 
-**File: `apps/api/src/routes/project.ts`**
+**File: `supabase/functions/src/routes/project.ts`**
 
 ```typescript
 import { Router } from 'express';

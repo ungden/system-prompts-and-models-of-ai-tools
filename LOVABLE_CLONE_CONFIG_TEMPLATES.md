@@ -8,7 +8,7 @@
 
 ## 1. WebContainer Manager
 
-**File: `apps/web/lib/webcontainer.ts`**
+**File: `src/lib/webcontainer.ts`**
 
 ```typescript
 import { WebContainer, FileSystemTree } from '@webcontainer/api';
@@ -153,7 +153,7 @@ export class WebContainerManager {
 ```typescript
 import { FileSystemTree } from '@webcontainer/api';
 
-export function generateNextJsTemplate(projectName: string): FileSystemTree {
+export function generateViteTemplate(projectName: string): FileSystemTree {
   return {
     'package.json': {
       file: {
@@ -186,7 +186,7 @@ export function generateNextJsTemplate(projectName: string): FileSystemTree {
               tailwindcss: '^3.4.0',
               autoprefixer: '^10.0.1',
               eslint: '^8',
-              'eslint-config-next': '14.2.0'
+              'eslint-config-react-app': '14.2.0'
             }
           },
           null,
@@ -228,7 +228,7 @@ export function generateNextJsTemplate(projectName: string): FileSystemTree {
         )
       }
     },
-    'next.config.js': {
+    'vite.config.ts': {
       file: {
         contents: `/** @type {import('next').NextConfig} */
 const nextConfig = {};
@@ -320,7 +320,7 @@ export default config;
             'layout.tsx': {
               file: {
                 contents: `import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+// Import fonts via index.html or CSS
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -474,7 +474,7 @@ export async function initializeProjectTemplate(
   // Generate template
   const template =
     framework === 'next'
-      ? generateNextJsTemplate(projectId)
+      ? generateViteTemplate(projectId)
       : generateViteTemplate(projectId);
 
   // Write files
@@ -514,7 +514,7 @@ function generateViteTemplate(projectName: string): FileSystemTree {
 
 ## 1. Chat Store
 
-**File: `apps/web/stores/chat-store.ts`**
+**File: `src/stores/chat-store.ts`**
 
 ```typescript
 import { create } from 'zustand';
@@ -592,7 +592,7 @@ export const useChatStore = create<ChatState>()(
 
 ## 2. Preview Store
 
-**File: `apps/web/stores/preview-store.ts`**
+**File: `src/stores/preview-store.ts`**
 
 ```typescript
 import { create } from 'zustand';
@@ -653,7 +653,7 @@ export const usePreviewStore = create<PreviewState>((set) => ({
 
 ## 3. Theme Store
 
-**File: `apps/web/stores/theme-store.ts`**
+**File: `src/stores/theme-store.ts`**
 
 ```typescript
 import { create } from 'zustand';
@@ -739,7 +739,7 @@ export const useThemeStore = create<ThemeState>()(
 
 ## 4. Project Store
 
-**File: `apps/web/stores/project-store.ts`**
+**File: `src/stores/project-store.ts`**
 
 ```typescript
 import { create } from 'zustand';
@@ -1028,26 +1028,26 @@ PINECONE_ENVIRONMENT=us-west1-gcp
 
 ## 2. Frontend .env
 
-**File: `apps/web/.env.local.example`**
+**File: `src/.env.local.example`**
 
 ```env
 # API
-NEXT_PUBLIC_API_URL=http://localhost:3001
+VITE_API_URL=http://localhost:3001
 
 # Supabase (if using for auth)
-NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxx...
+VITE_SUPABASE_URL=https://xxxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJxxx...
 
 # Analytics
-NEXT_PUBLIC_POSTHOG_KEY=phc_...
-NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
+VITE_POSTHOG_KEY=phc_...
+VITE_POSTHOG_HOST=https://app.posthog.com
 
 # Google Analytics
-NEXT_PUBLIC_GA_ID=G-...
+VITE_GA_ID=G-...
 
 # Feature Flags
-NEXT_PUBLIC_ENABLE_WEBCONTAINER=true
-NEXT_PUBLIC_ENABLE_GITHUB_INTEGRATION=true
+VITE_ENABLE_WEBCONTAINER=true
+VITE_ENABLE_GITHUB_INTEGRATION=true
 ```
 
 ---
@@ -1220,7 +1220,7 @@ services:
     ports:
       - '3000:3000'
     environment:
-      NEXT_PUBLIC_API_URL: http://api:3001
+      VITE_API_URL: http://api:3001
     depends_on:
       - api
 
